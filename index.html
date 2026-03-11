@@ -7,81 +7,334 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <title>MeetingMind</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Nunito:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   :root {
-    --bg: #F8F9FA; --card: #FFFFFF; --blue: #1A73E8; --blue-light: #E8F0FE; --blue-dark: #1557B0;
-    --text: #202124; --text-2: #5F6368; --text-3: #9AA0A6; --border: #E8EAED;
-    --green: #137333; --green-light: #E6F4EA; --red: #C5221F; --red-light: #FCE8E6;
-    --yellow-light: #FEF9E7; --shadow: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.06);
-    --radius: 12px; --safe-bottom: env(safe-area-inset-bottom, 0px);
+    --bg: #F7F2EB;
+    --card: #FDFAF5;
+    --accent: #C06B3A;
+    --accent-light: #F5E5D3;
+    --accent-dark: #9A5228;
+    --text: #2C1A0E;
+    --text-2: #7A5C42;
+    --text-3: #B89A7E;
+    --border: #E4D4C0;
+    --green: #5E8A54;
+    --green-light: #EAF2E6;
+    --red: #B84A3A;
+    --red-light: #FAE9E6;
+    --yellow-light: #FAF2E0;
+    --shadow: 0 2px 8px rgba(80,40,10,0.08), 0 1px 3px rgba(80,40,10,0.05);
+    --shadow-md: 0 4px 16px rgba(80,40,10,0.10), 0 2px 6px rgba(80,40,10,0.06);
+    --radius: 14px;
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
   }
-  body { font-family: 'DM Sans', -apple-system, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; -webkit-font-smoothing: antialiased; }
+  body {
+    font-family: 'Nunito', -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+  }
   .screen { display: none; flex-direction: column; min-height: 100vh; }
   .screen.active { display: flex; }
-  .topbar { background: var(--card); border-bottom: 1px solid var(--border); padding: 16px 20px 14px; position: sticky; top: 0; z-index: 10; display: flex; align-items: center; gap: 12px; }
-  .topbar-logo { width: 28px; height: 28px; border-radius: 8px; background: var(--blue); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
-  .topbar-logo svg { width: 16px; height: 16px; fill: white; }
-  .topbar-title { font-size: 17px; font-weight: 600; letter-spacing: -0.3px; }
-  .topbar-sub { font-size: 12px; color: var(--text-2); margin-top: 1px; }
-  .topbar-back { width: 36px; height: 36px; border-radius: 50%; border: none; background: var(--bg); cursor: pointer; display: flex; align-items: center; justify-content: center; margin-right: 4px; flex-shrink: 0; }
+
+  /* ── Topbar ── */
+  .topbar {
+    background: var(--card);
+    border-bottom: 1px solid var(--border);
+    padding: 16px 20px 14px;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .topbar-logo {
+    width: 30px; height: 30px;
+    border-radius: 9px;
+    background: var(--accent);
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    font-size: 15px;
+  }
+  .topbar-title {
+    font-family: 'Lora', serif;
+    font-size: 17px;
+    font-weight: 600;
+    letter-spacing: -0.2px;
+    color: var(--text);
+  }
+  .topbar-sub { font-size: 12px; color: var(--text-3); margin-top: 1px; }
+  .topbar-back {
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    border: none;
+    background: var(--bg);
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    margin-right: 4px;
+    flex-shrink: 0;
+    color: var(--text-2);
+  }
   .topbar-back svg { width: 20px; height: 20px; }
-  .scroll-area { flex: 1; overflow-y: auto; padding: 20px 16px; padding-bottom: calc(20px + var(--safe-bottom)); }
-  .card { background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow); margin-bottom: 14px; }
-  .card-header { padding: 16px 20px 12px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 10px; }
-  .card-icon { width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 15px; }
-  .card-title { font-size: 14px; font-weight: 600; }
-  .card-desc { font-size: 12px; color: var(--text-2); margin-top: 2px; }
-  .card-body { padding: 16px 20px; }
+
+  /* ── Layout ── */
+  .scroll-area {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px 16px;
+    padding-bottom: calc(28px + var(--safe-bottom));
+  }
+
+  /* ── Cards ── */
+  .card {
+    background: var(--card);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    margin-bottom: 14px;
+    border: 1px solid var(--border);
+  }
+  .card-header {
+    padding: 15px 18px 12px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .card-icon {
+    width: 32px; height: 32px;
+    border-radius: 9px;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    font-size: 15px;
+  }
+  .card-title {
+    font-family: 'Lora', serif;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text);
+  }
+  .card-desc { font-size: 12px; color: var(--text-3); margin-top: 2px; }
+  .card-body { padding: 16px 18px; }
   .field { margin-bottom: 16px; }
   .field:last-child { margin-bottom: 0; }
-  .label { font-size: 12px; font-weight: 500; color: var(--text-2); margin-bottom: 6px; display: block; letter-spacing: 0.3px; text-transform: uppercase; }
-  .input { width: 100%; padding: 12px 14px; border: 1.5px solid var(--border); border-radius: 10px; font-size: 15px; font-family: inherit; background: var(--card); color: var(--text); outline: none; transition: border-color 0.15s; -webkit-appearance: none; }
-  .input:focus { border-color: var(--blue); }
+  .label {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-3);
+    margin-bottom: 6px;
+    display: block;
+    letter-spacing: 0.6px;
+    text-transform: uppercase;
+  }
+  .input {
+    width: 100%;
+    padding: 12px 14px;
+    border: 1.5px solid var(--border);
+    border-radius: 10px;
+    font-size: 15px;
+    font-family: 'Nunito', inherit;
+    background: var(--bg);
+    color: var(--text);
+    outline: none;
+    transition: border-color 0.2s;
+    -webkit-appearance: none;
+  }
+  .input:focus { border-color: var(--accent); }
+  .input::placeholder { color: var(--text-3); }
   .input.mono { font-family: 'DM Mono', monospace; font-size: 13px; }
-  textarea.input { resize: none; min-height: 160px; line-height: 1.5; }
-  .input-hint { font-size: 11px; color: var(--text-3); margin-top: 5px; line-height: 1.4; }
-  .btn { width: 100%; padding: 15px; border-radius: 10px; border: none; font-family: inherit; font-size: 15px; font-weight: 600; cursor: pointer; transition: all 0.15s; display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 52px; -webkit-tap-highlight-color: transparent; }
-  .btn-primary { background: var(--blue); color: white; }
-  .btn-primary:active { background: var(--blue-dark); }
-  .btn-secondary { background: var(--blue-light); color: var(--blue); }
-  .btn-outline { background: transparent; color: var(--text-3); border: 1.5px solid var(--border); font-size: 13px; min-height: 42px; }
+  textarea.input { resize: none; min-height: 160px; line-height: 1.6; }
+  .input-hint { font-size: 11px; color: var(--text-3); margin-top: 5px; line-height: 1.5; }
+
+  /* ── Buttons ── */
+  .btn {
+    width: 100%;
+    padding: 15px;
+    border-radius: 11px;
+    border: none;
+    font-family: 'Nunito', inherit;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.15s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 52px;
+    -webkit-tap-highlight-color: transparent;
+    letter-spacing: 0.1px;
+  }
+  .btn-primary { background: var(--accent); color: white; }
+  .btn-primary:active { background: var(--accent-dark); transform: scale(0.99); }
+  .btn-secondary { background: var(--accent-light); color: var(--accent-dark); }
+  .btn-outline {
+    background: transparent;
+    color: var(--text-3);
+    border: 1.5px solid var(--border);
+    font-size: 13px;
+    min-height: 42px;
+    font-weight: 600;
+  }
   .btn-green { background: var(--green); color: white; }
-  .tag { display: inline-flex; align-items: center; padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 500; }
-  .tag.gray { background: var(--bg); color: var(--text-2); border: 1px solid var(--border); }
+
+  /* ── Tags ── */
+  .tag {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 11px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .tag.gray {
+    background: var(--accent-light);
+    color: var(--accent-dark);
+    border: 1px solid rgba(192,107,58,0.15);
+  }
   .tag-row { display: flex; flex-wrap: wrap; gap: 6px; }
-  .summary-text { font-size: 15px; line-height: 1.6; }
-  .list-item { display: flex; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--border); align-items: flex-start; }
+
+  /* ── Result content ── */
+  .summary-text { font-size: 15px; line-height: 1.7; color: var(--text); }
+  .list-item {
+    display: flex;
+    gap: 10px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border);
+    align-items: flex-start;
+  }
   .list-item:last-child { border-bottom: none; padding-bottom: 0; }
-  .list-dot { width: 6px; height: 6px; border-radius: 50%; margin-top: 7px; flex-shrink: 0; }
-  .list-check { width: 18px; height: 18px; border-radius: 4px; border: 1.5px solid var(--border); flex-shrink: 0; margin-top: 1px; }
-  .list-text { font-size: 14px; line-height: 1.5; flex: 1; }
-  .list-meta { font-size: 12px; color: var(--text-2); margin-top: 2px; }
-  .status-bar { padding: 12px 16px; border-radius: 10px; font-size: 13px; display: flex; align-items: flex-start; gap: 10px; line-height: 1.4; }
+  .list-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    margin-top: 8px;
+    flex-shrink: 0;
+    background: var(--accent);
+  }
+  .list-check {
+    width: 18px; height: 18px;
+    border-radius: 5px;
+    border: 1.5px solid var(--border);
+    flex-shrink: 0;
+    margin-top: 2px;
+    background: var(--bg);
+  }
+  .list-text { font-size: 14px; line-height: 1.6; flex: 1; color: var(--text); }
+  .list-meta { font-size: 12px; color: var(--text-3); margin-top: 2px; }
+
+  /* ── Status bars ── */
+  .status-bar {
+    padding: 12px 16px;
+    border-radius: 10px;
+    font-size: 13px;
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    line-height: 1.5;
+    font-weight: 500;
+  }
   .status-bar.success { background: var(--green-light); color: var(--green); }
   .status-bar.error { background: var(--red-light); color: var(--red); }
-  .status-bar.info { background: var(--blue-light); color: var(--blue); }
+  .status-bar.info { background: var(--accent-light); color: var(--accent-dark); }
   .status-bar.warn { background: var(--yellow-light); color: #7C5700; }
   .status-icon { font-size: 16px; flex-shrink: 0; }
-  .loading-overlay { position: fixed; inset: 0; background: rgba(255,255,255,0.92); display: none; align-items: center; justify-content: center; flex-direction: column; gap: 16px; z-index: 100; backdrop-filter: blur(4px); }
+
+  /* ── Loading overlay ── */
+  .loading-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(247,242,235,0.94);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 18px;
+    z-index: 100;
+    backdrop-filter: blur(6px);
+  }
   .loading-overlay.active { display: flex; }
-  .spinner { width: 36px; height: 36px; border: 3px solid var(--border); border-top-color: var(--blue); border-radius: 50%; animation: spin 0.7s linear infinite; }
+  .spinner {
+    width: 36px; height: 36px;
+    border: 3px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.75s linear infinite;
+  }
   @keyframes spin { to { transform: rotate(360deg); } }
-  .loading-text { font-size: 14px; color: var(--text-2); font-weight: 500; }
+  .loading-text {
+    font-family: 'Lora', serif;
+    font-size: 15px;
+    color: var(--text-2);
+    font-style: italic;
+  }
+
+  /* ── Hero section ── */
   .hero { padding: 32px 20px 24px; text-align: center; }
   .hero-icon { font-size: 44px; margin-bottom: 16px; }
-  .hero-title { font-size: 26px; font-weight: 600; letter-spacing: -0.5px; margin-bottom: 8px; }
-  .hero-sub { font-size: 15px; color: var(--text-2); line-height: 1.5; }
+  .hero-title {
+    font-family: 'Lora', serif;
+    font-size: 26px;
+    font-weight: 600;
+    letter-spacing: -0.5px;
+    margin-bottom: 8px;
+    color: var(--text);
+  }
+  .hero-sub { font-size: 15px; color: var(--text-2); line-height: 1.6; }
+
+  /* ── Steps ── */
   .steps { display: flex; gap: 6px; margin-bottom: 20px; }
   .step { flex: 1; height: 3px; background: var(--border); border-radius: 2px; }
-  .step.done { background: var(--blue); }
-  .copy-box { background: var(--bg); border: 1px solid var(--border); border-radius: 10px; padding: 14px; font-family: 'DM Mono', monospace; font-size: 12px; line-height: 1.6; color: var(--text-2); max-height: 200px; overflow-y: auto; white-space: pre-wrap; word-break: break-word; margin-bottom: 10px; }
+  .step.done { background: var(--accent); }
+
+  /* ── Copy box ── */
+  .copy-box {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px;
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    line-height: 1.7;
+    color: var(--text-2);
+    max-height: 200px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    word-break: break-word;
+    margin-bottom: 10px;
+  }
+
+  /* ── Meta grid ── */
   .meta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
   .meta-item { padding: 12px; background: var(--bg); border-radius: 10px; }
-  .meta-item-label { font-size: 11px; color: var(--text-3); font-weight: 500; text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 4px; }
+  .meta-item-label {
+    font-size: 11px;
+    color: var(--text-3);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 4px;
+  }
   .meta-item-value { font-size: 14px; font-weight: 600; }
-  .saved-pill { display: inline-flex; align-items: center; gap: 6px; background: var(--green-light); color: var(--green); font-size: 12px; font-weight: 600; padding: 8px 14px; border-radius: 20px; margin-bottom: 14px; }
+
+  /* ── Saved pill ── */
+  .saved-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--green-light);
+    color: var(--green);
+    font-size: 12px;
+    font-weight: 700;
+    padding: 8px 14px;
+    border-radius: 20px;
+    margin-bottom: 14px;
+  }
+
+  /* ── Record button states ── */
+  #recordBtn { transition: all 0.2s; }
 </style>
 </head>
 <body>
@@ -94,14 +347,14 @@
 <!-- ══════ SCREEN 1: CONFIG ══════ -->
 <div class="screen active" id="screen-config">
   <div class="topbar">
-    <div class="topbar-logo"><svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14.5v-9l6 4.5-6 4.5z"/></svg></div>
+    <div class="topbar-logo">🎙️</div>
     <div><div class="topbar-title">MeetingMind</div><div class="topbar-sub">Setup</div></div>
   </div>
   <div class="scroll-area">
     <div class="hero">
-      <div class="hero-icon">🎙️</div>
-      <div class="hero-title">Voice Memo → Notion</div>
-      <div class="hero-sub">Paste your iPhone Voice Memo transcript. Claude analyzes it and structures your meeting notes.</div>
+      <div class="hero-icon">🗒️</div>
+      <div class="hero-title">Voice → Notion</div>
+      <div class="hero-sub">Record your voice or paste a transcript. Claude analyzes it and structures your notes automatically.</div>
     </div>
 
     <div id="savedBanner" style="display:none; text-align:center; margin-bottom:14px">
@@ -110,7 +363,7 @@
 
     <div class="card">
       <div class="card-header">
-        <div class="card-icon" style="background:#F0F4FF">🤖</div>
+        <div class="card-icon" style="background:#F0EBE0">🤖</div>
         <div><div class="card-title">Claude API Key</div><div class="card-desc">console.anthropic.com → API Keys → Create Key</div></div>
       </div>
       <div class="card-body">
@@ -123,7 +376,20 @@
 
     <div class="card">
       <div class="card-header">
-        <div class="card-icon" style="background:#F7F6F3">📝</div>
+        <div class="card-icon" style="background:#EEF2E8">🎙️</div>
+        <div><div class="card-title">Groq API Key</div><div class="card-desc">For in-app audio recording and transcription</div></div>
+      </div>
+      <div class="card-body">
+        <div class="field">
+          <input type="password" class="input mono" id="groqKey" placeholder="gsk_..." autocomplete="off" autocorrect="off" spellcheck="false">
+          <div class="input-hint">console.groq.com → API Keys → Create key. Free tier, used for audio transcription.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon" style="background:#F0EBE0">📝</div>
         <div><div class="card-title">Notion Integration</div><div class="card-desc">Optional — skip if you just want the formatted copy</div></div>
       </div>
       <div class="card-body">
@@ -131,11 +397,6 @@
           <label class="label">Integration Token</label>
           <input type="password" class="input mono" id="notionToken" placeholder="secret_..." autocomplete="off" autocorrect="off" spellcheck="false">
           <div class="input-hint">notion.so/my-integrations → New integration → copy token → share with your database.</div>
-        </div>
-        <div class="field">
-          <label class="label">Groq API Key <span style="font-weight:400;color:var(--text-3)">(for in-app recording)</span></label>
-          <input type="password" class="input mono" id="groqKey" placeholder="gsk_..." autocomplete="off" autocorrect="off" spellcheck="false">
-          <div class="input-hint">console.groq.com → API Keys → Create key. Free tier, used for audio transcription.</div>
         </div>
         <div class="field">
           <label class="label">Database ID</label>
@@ -147,51 +408,66 @@
 
     <div class="status-bar info" style="margin-bottom:14px">
       <span class="status-icon">💡</span>
-      <span>Notion database needs: <strong>Name</strong> (title), <strong>Category</strong> (select), <strong>Sentiment</strong> (select), <strong>Tags</strong> (multi-select), <strong>Date</strong> (date).</span>
+      <span>Notion database needs: <strong>Name</strong> (title), <strong>Type</strong> (select), <strong>Key Topics</strong> (multi-select), <strong>Date</strong> (date).</span>
     </div>
 
     <button class="btn btn-primary" onclick="goToMain()">Continue →</button>
     <button class="btn btn-outline" onclick="clearSaved()" style="margin-top:10px">Clear saved keys</button>
+    <div style="text-align:center;margin-top:14px">
+      <button onclick="goTo('main')" style="background:none;border:none;color:var(--text-3);font-size:13px;cursor:pointer;text-decoration:underline;padding:4px">skip to app →</button>
+    </div>
   </div>
 </div>
 
-<!-- ══════ SCREEN 2: PASTE ══════ -->
+<!-- ══════ SCREEN 2: RECORD ══════ -->
 <div class="screen" id="screen-main">
   <div class="topbar">
     <button class="topbar-back" onclick="goTo('config')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
     </button>
-    <div><div class="topbar-title">Paste Transcript</div><div class="topbar-sub">Voice Memos → ··· → Share Transcript</div></div>
+    <div><div class="topbar-title">New Capture</div><div class="topbar-sub">Record or paste a transcript</div></div>
   </div>
   <div class="scroll-area">
     <div class="steps"><div class="step done"></div><div class="step done"></div><div class="step"></div></div>
-    <div class="card">
-      <div class="card-header">
-        <div class="card-icon" style="background:#FFF3F0">🎤</div>
-        <div><div class="card-title">Meeting Transcript</div><div class="card-desc">Paste your Voice Memo transcript below</div></div>
+
+    <!-- HERO: Record button -->
+    <div style="display:flex;flex-direction:column;align-items:center;padding:32px 0 24px">
+      <div style="position:relative;display:flex;align-items:center;justify-content:center;margin-bottom:18px">
+        <div id="recordRing" style="display:none;position:absolute;width:120px;height:120px;border-radius:50%;border:2.5px solid var(--accent);animation:ringPulse 1.4s ease-out infinite"></div>
+        <button id="recordBtn" onclick="toggleRecording()" style="width:96px;height:96px;border-radius:50%;border:none;background:var(--accent);color:white;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 6px 24px rgba(192,107,58,0.40);transition:all 0.2s;-webkit-tap-highlight-color:transparent;flex-shrink:0">
+          <span id="recordBtnIcon">
+            <svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="9" y="2" width="6" height="12" rx="3"/>
+              <path d="M5 10a7 7 0 0 0 14 0"/>
+              <line x1="12" y1="19" x2="12" y2="22"/>
+              <line x1="9" y1="22" x2="15" y2="22"/>
+            </svg>
+          </span>
+        </button>
       </div>
-      <div class="card-body">
-        <textarea class="input" id="transcript" rows="10" placeholder="Paste your transcript here…&#10;&#10;Example: 'Reviewed the Q2 Chromebook roadmap. Jake flagged that mid-market AI positioning needs work. Agreed to target $625 AUR for FY27. QC to draft positioning doc by Friday…'"></textarea>
-        <div class="input-hint">The more detail, the better the output.</div>
+      <div id="recordBtnText" style="font-size:14px;font-weight:600;color:var(--text-2);letter-spacing:0.2px">Tap to record</div>
+      <div id="recordingStatus" style="display:none;text-align:center;font-size:13px;color:var(--accent);font-weight:600;margin-top:4px">
+        <span id="recordTimer">0:00</span> · tap to stop
       </div>
     </div>
-    <div class="status-bar info" style="margin-bottom:14px">
-      <span class="status-icon">📱</span>
-      <span>On iPhone: Voice Memos → tap recording → <strong>···</strong> → <strong>Share Transcript</strong> → Copy → paste above.</span>
+    <style>
+      @keyframes ringPulse {
+        0% { transform: scale(1); opacity: 0.5; }
+        100% { transform: scale(1.6); opacity: 0; }
+      }
+      #recordBtn:active { transform: scale(0.94); }
+    </style>
+
+    <!-- PASTE: collapsed toggle -->
+    <div style="text-align:center;margin-bottom:16px">
+      <button onclick="togglePaste()" style="background:none;border:none;color:var(--text-3);font-size:13px;cursor:pointer;text-decoration:underline;padding:4px" id="pasteToggle">or paste a transcript</button>
     </div>
-    <button class="btn btn-primary" onclick="analyzeTranscript()" style="margin-bottom:10px">Analyze with Claude ✦</button>
-    <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
-      <div style="flex:1;height:1px;background:var(--border)"></div>
-      <span style="font-size:12px;color:var(--text-3);font-weight:500">OR RECORD IN-APP</span>
-      <div style="flex:1;height:1px;background:var(--border)"></div>
+    <div id="pasteSection" style="display:none;margin-bottom:12px">
+      <textarea class="input" id="transcript" rows="8" placeholder="Paste your transcript here…&#10;&#10;Example: 'Reviewed the Q2 roadmap. Jake flagged mid-market positioning needs work. Agreed to target $625 AUR for FY27. QC to draft doc by Friday…'"></textarea>
+      <div class="input-hint" style="margin-top:6px">The more detail, the better the output.</div>
+      <button class="btn btn-primary" onclick="analyzeTranscript()" style="margin-top:10px">Analyze with Claude ✦</button>
     </div>
-    <button class="btn" id="recordBtn" onclick="toggleRecording()" style="background:#FFF0F0;color:#C5221F;border:1.5px solid #F5C6C6;margin-bottom:4px">
-      <span id="recordBtnIcon">🎙️</span> <span id="recordBtnText">Record Meeting</span>
-    </button>
-    <div id="recordingStatus" style="display:none;text-align:center;font-size:12px;color:var(--text-2);margin-bottom:4px">
-      <span id="recordTimer">0:00</span> · tap button to stop
-    </div>
-    <div class="input-hint" style="text-align:center">Records audio → transcribes with Groq → auto-fills above. Requires Groq API key in settings.</div>
+
     <div id="errorBanner" style="display:none; margin-top:12px" class="status-bar error">
       <span class="status-icon">❌</span>
       <span id="errorText"></span>
@@ -205,7 +481,7 @@
     <button class="topbar-back" onclick="goTo('main')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
     </button>
-    <div><div class="topbar-title" id="resultTitle">Meeting Notes</div><div class="topbar-sub" id="resultDate"></div></div>
+    <div><div class="topbar-title" id="resultTitle">Notes</div><div class="topbar-sub" id="resultDate"></div></div>
   </div>
   <div class="scroll-area" id="resultArea"></div>
 </div>
@@ -231,6 +507,14 @@ function goTo(s) {
   document.querySelectorAll('.screen').forEach(x => x.classList.remove('active'));
   document.getElementById('screen-' + s).classList.add('active');
   window.scrollTo(0, 0);
+}
+
+function togglePaste() {
+  const section = document.getElementById('pasteSection');
+  const btn = document.getElementById('pasteToggle');
+  const isHidden = section.style.display === 'none';
+  section.style.display = isHidden ? 'block' : 'none';
+  btn.textContent = isHidden ? 'hide transcript paste' : 'or paste a transcript';
 }
 
 function goToMain() {
@@ -263,7 +547,7 @@ function hideLoading() { document.getElementById('loadingOverlay').classList.rem
 async function analyzeTranscript() {
   transcript = document.getElementById('transcript').value.trim();
   if (!transcript || transcript.length < 50) { alert('Please paste a full transcript first.'); return; }
-  showLoading('Claude is analyzing your meeting…');
+  showLoading('Claude is reading your notes…');
   try {
     const res = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
@@ -292,11 +576,11 @@ function renderResult() {
   const tagRow = `<div class="tag-row" style="margin-bottom:14px">${tags}</div>`;
   const notionCard = `
     <div class="card">
-      <div class="card-header"><div class="card-icon" style="background:#F7F6F3">📝</div><div><div class="card-title">Send to Notion</div><div class="card-desc">${notionToken?'Ready to push':'Copy text below'}</div></div></div>
+      <div class="card-header"><div class="card-icon" style="background:#F0EBE0">📝</div><div><div class="card-title">Send to Notion</div><div class="card-desc">${notionToken?'Ready to push':'Copy text below'}</div></div></div>
       <div class="card-body">
         <div id="notionStatus"></div>
         ${notionToken && databaseId ? `<div class="status-bar info" style="margin-bottom:12px"><span class="status-icon">⏳</span><span>Pushing to Notion…</span></div>` : `<div class="status-bar warn" style="margin-bottom:12px"><span class="status-icon">⚠️</span><span>No Notion token — copy below.</span></div>`}
-        <div style="font-size:10px;font-weight:600;letter-spacing:0.8px;text-transform:uppercase;color:var(--text-3);margin-bottom:8px">Formatted output</div>
+        <div style="font-size:10px;font-weight:700;letter-spacing:0.8px;text-transform:uppercase;color:var(--text-3);margin-bottom:8px">Formatted output</div>
         <div class="copy-box" id="copyBox">${buildCopyText()}</div>
         <button class="btn btn-secondary" onclick="copyText()">Copy Formatted Text</button>
       </div>
@@ -308,61 +592,60 @@ function renderResult() {
   if (type === 'Meeting') {
     document.getElementById('resultArea').innerHTML = steps + tagRow + `
     <div class="card">
-      <div class="card-header"><div class="card-icon" style="background:#E8F0FE">📋</div><div><div class="card-title">Summary</div></div></div>
+      <div class="card-header"><div class="card-icon" style="background:#EEF0F8">📋</div><div><div class="card-title">Summary</div></div></div>
       <div class="card-body"><p class="summary-text">${result.summary}</p>${result.participants&&result.participants.length?`<div style="margin-top:10px;font-size:12px;color:var(--text-2)">👥 ${result.participants.join(', ')}</div>`:''}</div>
     </div>
     <div class="card">
-      <div class="card-header"><div class="card-icon" style="background:#FFF8E1">💬</div><div><div class="card-title">Key Moments</div></div></div>
-      <div class="card-body">${(result.keyMoments||[]).map(m=>`<div class="list-item"><div class="list-dot" style="background:#F9A825;margin-top:8px"></div><div class="list-text">${m}</div></div>`).join('') || '<div style="color:var(--text-3);font-size:14px">None captured.</div>'}</div>
+      <div class="card-header"><div class="card-icon" style="background:#F5EEE0">💬</div><div><div class="card-title">Key Moments</div></div></div>
+      <div class="card-body">${(result.keyMoments||[]).map(m=>`<div class="list-item"><div class="list-dot" style="background:#C9893A;margin-top:8px"></div><div class="list-text">${m}</div></div>`).join('') || '<div style="color:var(--text-3);font-size:14px">None captured.</div>'}</div>
     </div>
     <div class="card">
-      <div class="card-header"><div class="card-icon" style="background:#FFF3E0">⚡</div><div><div class="card-title">Key Decisions</div></div></div>
-      <div class="card-body">${(result.keyDecisions||[]).map(d=>`<div class="list-item"><div class="list-dot" style="background:#F4511E;margin-top:8px"></div><div class="list-text">${d}</div></div>`).join('') || '<div style="color:var(--text-3);font-size:14px">None identified.</div>'}</div>
+      <div class="card-header"><div class="card-icon" style="background:#F5EEE0">⚡</div><div><div class="card-title">Key Decisions</div></div></div>
+      <div class="card-body">${(result.keyDecisions||[]).map(d=>`<div class="list-item"><div class="list-dot" style="background:#B84A3A;margin-top:8px"></div><div class="list-text">${d}</div></div>`).join('') || '<div style="color:var(--text-3);font-size:14px">None identified.</div>'}</div>
     </div>
     <div class="card">
-      <div class="card-header"><div class="card-icon" style="background:#E6F4EA">✅</div><div><div class="card-title">Action Items</div><div class="card-desc">${(result.actionItems||[]).length} items</div></div></div>
+      <div class="card-header"><div class="card-icon" style="background:#EAF2E6">✅</div><div><div class="card-title">Action Items</div><div class="card-desc">${(result.actionItems||[]).length} items</div></div></div>
       <div class="card-body">${(result.actionItems||[]).map(a=>`<div class="list-item"><div class="list-check"></div><div style="flex:1"><div class="list-text">${a.task}</div><div class="list-meta">👤 ${a.owner} · 📅 ${a.due}</div></div></div>`).join('') || '<div style="color:var(--text-3);font-size:14px">None identified.</div>'}</div>
     </div>
     <div class="card">
-      <div class="card-header"><div class="card-icon" style="background:#F3E5F5">🔮</div><div><div class="card-title">Next Steps</div></div></div>
-      <div class="card-body">${(result.nextSteps||[]).map((s,i)=>`<div class="list-item"><div style="font-family:'DM Mono',monospace;font-size:12px;color:var(--blue);margin-top:4px;flex-shrink:0;font-weight:600">${i+1}.</div><div class="list-text">${s}</div></div>`).join('')}</div>
+      <div class="card-header"><div class="card-icon" style="background:#EEE8F5">🔮</div><div><div class="card-title">Next Steps</div></div></div>
+      <div class="card-body">${(result.nextSteps||[]).map((s,i)=>`<div class="list-item"><div style="font-family:'DM Mono',monospace;font-size:12px;color:var(--accent);margin-top:4px;flex-shrink:0;font-weight:600">${i+1}.</div><div class="list-text">${s}</div></div>`).join('')}</div>
     </div>` + notionCard;
 
   } else if (type === 'Todo') {
     document.getElementById('resultArea').innerHTML = steps + tagRow + `
-    <div class="card" style="background:linear-gradient(135deg,#1A73E8,#1557B0);color:white;border:none">
+    <div class="card" style="background:linear-gradient(135deg,#C06B3A,#9A5228);color:white;border:none">
       <div class="card-body" style="padding:20px">
-        <div style="font-size:11px;font-weight:600;letter-spacing:1px;opacity:0.7;margin-bottom:8px;text-transform:uppercase">✨ Your Affirmation</div>
-        <div style="font-size:16px;font-weight:500;line-height:1.6;font-style:italic">"${result.affirmation||''}"</div>
+        <div style="font-size:11px;font-weight:700;letter-spacing:1px;opacity:0.7;margin-bottom:8px;text-transform:uppercase">✨ Your Affirmation</div>
+        <div style="font-family:'Lora',serif;font-size:16px;font-weight:500;line-height:1.7;font-style:italic">"${result.affirmation||''}"</div>
       </div>
     </div>
     <div class="card">
-      <div class="card-header"><div class="card-icon" style="background:#FFF3E0">🎯</div><div><div class="card-title">Priorities</div><div class="card-desc">Top 3 for today</div></div></div>
-      <div class="card-body">${(result.priorities||[]).map((p,i)=>`<div class="list-item"><div style="font-family:'DM Mono',monospace;font-size:13px;color:var(--blue);font-weight:700;flex-shrink:0;margin-top:3px">${i+1}</div><div class="list-text" style="font-weight:500">${p}</div></div>`).join('')}</div>
+      <div class="card-header"><div class="card-icon" style="background:#F5EEE0">🎯</div><div><div class="card-title">Priorities</div><div class="card-desc">Top 3 for today</div></div></div>
+      <div class="card-body">${(result.priorities||[]).map((p,i)=>`<div class="list-item"><div style="font-family:'DM Mono',monospace;font-size:13px;color:var(--accent);font-weight:700;flex-shrink:0;margin-top:3px">${i+1}</div><div class="list-text" style="font-weight:600">${p}</div></div>`).join('')}</div>
     </div>
     <div class="card">
-      <div class="card-header"><div class="card-icon" style="background:#E6F4EA">✅</div><div><div class="card-title">Tasks</div><div class="card-desc">${(result.tasks||[]).length} items</div></div></div>
+      <div class="card-header"><div class="card-icon" style="background:#EAF2E6">✅</div><div><div class="card-title">Tasks</div><div class="card-desc">${(result.tasks||[]).length} items</div></div></div>
       <div class="card-body">${(result.tasks||[]).map(t=>`<div class="list-item"><div class="list-check"></div><div style="flex:1"><div class="list-text">${t.task}</div>${t.context?`<div class="list-meta">${t.context}</div>`:''}</div></div>`).join('') || '<div style="color:var(--text-3);font-size:14px">None identified.</div>'}</div>
     </div>` + notionCard;
 
   } else {
-    // BrainDump
     document.getElementById('resultArea').innerHTML = steps + tagRow + `
     <div class="card">
-      <div class="card-header"><div class="card-icon" style="background:#F3E5F5">💡</div><div><div class="card-title">Core Thought</div></div></div>
-      <div class="card-body"><p class="summary-text" style="font-weight:500">${result.coreThought||''}</p></div>
+      <div class="card-header"><div class="card-icon" style="background:#EEE8F5">💡</div><div><div class="card-title">Core Thought</div></div></div>
+      <div class="card-body"><p class="summary-text" style="font-family:'Lora',serif;font-style:italic">${result.coreThought||''}</p></div>
     </div>
     <div class="card">
-      <div class="card-header"><div class="card-icon" style="background:#FFF8E1">🗂️</div><div><div class="card-title">Ideas</div></div></div>
-      <div class="card-body">${(result.ideas||[]).map(cluster=>`<div style="margin-bottom:14px"><div style="font-size:12px;font-weight:600;color:var(--blue);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px">${cluster.cluster}</div>${(cluster.points||[]).map(p=>`<div class="list-item"><div class="list-dot" style="margin-top:8px"></div><div class="list-text">${p}</div></div>`).join('')}</div>`).join('')}</div>
+      <div class="card-header"><div class="card-icon" style="background:#F5EEE0">🗂️</div><div><div class="card-title">Ideas</div></div></div>
+      <div class="card-body">${(result.ideas||[]).map(cluster=>`<div style="margin-bottom:14px"><div style="font-size:12px;font-weight:700;color:var(--accent);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px">${cluster.cluster}</div>${(cluster.points||[]).map(p=>`<div class="list-item"><div class="list-dot" style="margin-top:8px"></div><div class="list-text">${p}</div></div>`).join('')}</div>`).join('')}</div>
     </div>
     <div class="card">
-      <div class="card-header"><div class="card-icon" style="background:#FCE8E6">❓</div><div><div class="card-title">Open Questions</div></div></div>
-      <div class="card-body">${(result.openQuestions||[]).map(q=>`<div class="list-item"><div class="list-dot" style="background:#9AA0A6;margin-top:8px"></div><div class="list-text">${q}</div></div>`).join('') || '<div style="color:var(--text-3);font-size:14px">None identified.</div>'}</div>
+      <div class="card-header"><div class="card-icon" style="background:#FAE9E6">❓</div><div><div class="card-title">Open Questions</div></div></div>
+      <div class="card-body">${(result.openQuestions||[]).map(q=>`<div class="list-item"><div class="list-dot" style="background:var(--text-3);margin-top:8px"></div><div class="list-text">${q}</div></div>`).join('') || '<div style="color:var(--text-3);font-size:14px">None identified.</div>'}</div>
     </div>
     <div class="card">
-      <div class="card-header"><div class="card-icon" style="background:#F3E5F5">🔮</div><div><div class="card-title">Possible Next Steps</div></div></div>
-      <div class="card-body">${(result.nextSteps||[]).map((s,i)=>`<div class="list-item"><div style="font-family:'DM Mono',monospace;font-size:12px;color:var(--blue);margin-top:4px;flex-shrink:0;font-weight:600">${i+1}.</div><div class="list-text">${s}</div></div>`).join('')}</div>
+      <div class="card-header"><div class="card-icon" style="background:#EEE8F5">🔮</div><div><div class="card-title">Possible Next Steps</div></div></div>
+      <div class="card-body">${(result.nextSteps||[]).map((s,i)=>`<div class="list-item"><div style="font-family:'DM Mono',monospace;font-size:12px;color:var(--accent);margin-top:4px;flex-shrink:0;font-weight:600">${i+1}.</div><div class="list-text">${s}</div></div>`).join('')}</div>
     </div>` + notionCard;
   }
 }
@@ -399,13 +682,11 @@ async function copyText() {
   catch { const el=document.getElementById('copyBox'); const r=document.createRange(); r.selectNodeContents(el); window.getSelection().removeAllRanges(); window.getSelection().addRange(r); showToast('Text selected — tap Copy'); }
 }
 
-
 async function pushToNotion() {
   const btn = document.getElementById('pushBtn'), st = document.getElementById('notionStatus');
   if (btn) { btn.disabled=true; btn.textContent='Pushing…'; }
   const type = result.type || 'Meeting';
 
-  // Build page body based on type
   let children = [];
   if (type === 'Meeting') {
     if (result.participants&&result.participants.length) children.push(
@@ -435,7 +716,6 @@ async function pushToNotion() {
       ...(result.tasks||[]).map(t=>({object:'block',type:'to_do',to_do:{rich_text:[{text:{content:t.task+(t.context?' — '+t.context:'')}}],checked:false}}))
     );
   } else {
-    // BrainDump
     children.push(
       {object:'block',type:'heading_2',heading_2:{rich_text:[{text:{content:'💡 Core Thought'}}]}},
       {object:'block',type:'paragraph',paragraph:{rich_text:[{text:{content:result.coreThought||''}}]}}
@@ -452,7 +732,6 @@ async function pushToNotion() {
     );
   }
 
-  // Append transcript
   children.push(
     {object:'block',type:'heading_2',heading_2:{rich_text:[{text:{content:'📎 Original Transcript'}}]}},
     {object:'block',type:'paragraph',paragraph:{rich_text:[{text:{content:transcript.substring(0,1900)}}]}}
@@ -466,6 +745,7 @@ async function pushToNotion() {
         notionToken,
         pageData: {
           parent:{database_id:databaseId},
+          icon:{type:'emoji',emoji:type==='Todo'?'✅':type==='BrainDump'?'💡':'🗓️'},
           properties:{
             Name:{title:[{text:{content:result.title}}]},
             Type:{select:{name:type}},
@@ -490,13 +770,10 @@ function showErrorBanner(msg) {
   else { alert(msg); }
 }
 
-
-// ── In-app recording ──────────────────────────────────────────────
 let recordInterval = null;
 let recordSeconds = 0;
 
 async function continueRecording() {
-  // Reset button to stop mode and start recording again, appending to existing transcript
   document.getElementById('recordBtn').onclick = toggleRecording;
   audioChunks = [];
   try {
@@ -507,9 +784,9 @@ async function continueRecording() {
     mediaRecorder.start(1000);
     isRecording = true;
     recordSeconds = 0;
-    document.getElementById('recordBtn').style.background = '#C5221F';
+    document.getElementById('recordBtn').style.background = '#B84A3A';
     document.getElementById('recordBtn').style.color = 'white';
-    document.getElementById('recordBtn').style.borderColor = '#C5221F';
+    document.getElementById('recordBtn').style.borderColor = '#B84A3A';
     document.getElementById('recordBtnIcon').textContent = '⏹';
     document.getElementById('recordBtnText').textContent = 'Stop Recording';
     document.getElementById('recordBtn').onclick = toggleRecording;
@@ -534,7 +811,7 @@ async function handleContinueStop() {
     formData.append('model', 'whisper-large-v3');
     formData.append('response_format', 'text');
 
-    document.getElementById('recordBtnIcon').textContent = '⏳';
+    document.getElementById('recordBtnIcon').innerHTML = '<svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="9" y1="22" x2="15" y2="22"/></svg>';
     document.getElementById('recordBtnText').textContent = 'Transcribing…';
     document.getElementById('recordBtn').disabled = true;
 
@@ -546,16 +823,15 @@ async function handleContinueStop() {
     if (!res.ok) throw new Error('Groq transcription failed');
     const newText = await res.text();
 
-    // Append to existing transcript
     const existing = document.getElementById('transcript').value.trim();
     const combined = existing ? existing + ' ' + newText.trim() : newText.trim();
     document.getElementById('transcript').value = combined;
     transcript = combined;
 
     document.getElementById('recordBtn').disabled = false;
-    document.getElementById('recordBtn').style.background = '#E6F4EA';
-    document.getElementById('recordBtn').style.color = '#137333';
-    document.getElementById('recordBtn').style.borderColor = '#C8E6C9';
+    document.getElementById('recordBtn').style.background = '#EAF2E6';
+    document.getElementById('recordBtn').style.color = '#5E8A54';
+    document.getElementById('recordBtn').style.borderColor = '#C2DDB9';
     document.getElementById('recordBtnIcon').textContent = '➕';
     document.getElementById('recordBtnText').textContent = 'Continue Recording';
     document.getElementById('recordBtn').onclick = continueRecording;
@@ -571,18 +847,11 @@ async function handleContinueStop() {
 }
 
 async function toggleRecording() {
-  if (isRecording) {
-    stopRecording();
-  } else {
-    startRecording();
-  }
+  if (isRecording) { stopRecording(); } else { startRecording(); }
 }
 
 async function startRecording() {
-  if (!groqKey) {
-    showErrorBanner('Please add your Groq API key in Settings first.');
-    return;
-  }
+  if (!groqKey) { showErrorBanner('Please add your Groq API key in Settings first.'); return; }
   try {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     audioChunks = [];
@@ -592,11 +861,12 @@ async function startRecording() {
     mediaRecorder.start(1000);
     isRecording = true;
     recordSeconds = 0;
-    document.getElementById('recordBtn').style.background = '#C5221F';
-    document.getElementById('recordBtn').style.color = 'white';
-    document.getElementById('recordBtn').style.borderColor = '#C5221F';
-    document.getElementById('recordBtnIcon').textContent = '⏹';
-    document.getElementById('recordBtnText').textContent = 'Stop Recording';
+    document.getElementById('recordBtn').style.background = '#9A5228';
+    document.getElementById('recordBtn').style.boxShadow = '0 6px 24px rgba(154,82,40,0.50)';
+    document.getElementById('recordBtnIcon').innerHTML = `<svg width="32" height="32" viewBox="0 0 24 24" fill="white"><rect x="5" y="5" width="14" height="14" rx="3"/></svg>`;
+    document.getElementById('recordBtnText').textContent = 'Recording…';
+    document.getElementById('recordBtnText').style.color = 'var(--accent)';
+    document.getElementById('recordRing').style.display = 'block';
     document.getElementById('recordingStatus').style.display = 'block';
     recordInterval = setInterval(() => {
       recordSeconds++;
@@ -615,8 +885,10 @@ function stopRecording() {
     isRecording = false;
     clearInterval(recordInterval);
     document.getElementById('recordBtn').disabled = true;
-    document.getElementById('recordBtnIcon').textContent = '⏳';
+    document.getElementById('recordBtnIcon').innerHTML = '<svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="9" y1="22" x2="15" y2="22"/></svg>';
     document.getElementById('recordBtnText').textContent = 'Transcribing…';
+    document.getElementById('recordBtnText').style.color = 'var(--text-3)';
+    document.getElementById('recordRing').style.display = 'none';
     document.getElementById('recordingStatus').style.display = 'none';
   }
 }
@@ -652,29 +924,31 @@ async function handleRecordingStop() {
     document.getElementById('transcript').value = text.trim();
     transcript = text.trim();
 
-    // Show continue or new recording options
     document.getElementById('recordBtn').disabled = false;
-    document.getElementById('recordBtn').style.background = '#E6F4EA';
-    document.getElementById('recordBtn').style.color = '#137333';
-    document.getElementById('recordBtn').style.borderColor = '#C8E6C9';
-    document.getElementById('recordBtnIcon').textContent = '➕';
-    document.getElementById('recordBtnText').textContent = 'Continue Recording';
+    document.getElementById('recordBtn').style.background = 'var(--accent)';
+    document.getElementById('recordBtn').style.boxShadow = '0 4px 16px rgba(192,107,58,0.35)';
+    document.getElementById('recordBtnIcon').innerHTML = '<svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="9" y1="22" x2="15" y2="22"/></svg>';
+    document.getElementById('recordBtnText').textContent = 'Tap to record again';
+    document.getElementById('recordBtnText').style.color = 'var(--text-2)';
+    document.getElementById('recordRing').style.display = 'none';
     document.getElementById('recordBtn').onclick = continueRecording;
-    document.getElementById('recordingStatus').style.display = 'block';
-    document.getElementById('recordTimer').textContent = 'Tap to add more · or tap Analyze';
+    document.getElementById('recordingStatus').style.display = 'none';
 
-    showToast('Transcript ready — continue or tap Analyze!');
+    // Auto-analyze after transcription
+    showToast('Transcript ready — analyzing…');
+    analyzeTranscript();
   } catch(e) {
     document.getElementById('recordBtn').disabled = false;
-    document.getElementById('recordBtnIcon').textContent = '🎙️';
-    document.getElementById('recordBtnText').textContent = 'Record Meeting';
+    document.getElementById('recordBtnIcon').innerHTML = '<svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="9" y1="22" x2="15" y2="22"/></svg>';
+    document.getElementById('recordBtnText').textContent = 'Tap to record';
+    document.getElementById('recordBtnText').style.color = 'var(--text-2)';
     showErrorBanner('Transcription failed: ' + e.message);
   }
 }
 
 function showToast(msg) {
   const t=document.createElement('div'); t.textContent=msg;
-  Object.assign(t.style,{position:'fixed',bottom:'calc(24px + env(safe-area-inset-bottom))',left:'50%',transform:'translateX(-50%)',background:'#202124',color:'white',padding:'10px 18px',borderRadius:'20px',fontSize:'13px',fontFamily:'inherit',fontWeight:'500',zIndex:'999',boxShadow:'0 4px 12px rgba(0,0,0,0.2)',whiteSpace:'nowrap'});
+  Object.assign(t.style,{position:'fixed',bottom:'calc(24px + env(safe-area-inset-bottom))',left:'50%',transform:'translateX(-50%)',background:'#2C1A0E',color:'white',padding:'10px 18px',borderRadius:'20px',fontSize:'13px',fontFamily:'Nunito, inherit',fontWeight:'600',zIndex:'999',boxShadow:'0 4px 12px rgba(44,26,14,0.25)',whiteSpace:'nowrap'});
   document.body.appendChild(t);
   setTimeout(()=>{t.style.opacity='0';t.style.transition='opacity 0.3s';setTimeout(()=>t.remove(),300);},2000);
 }
