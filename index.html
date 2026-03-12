@@ -543,8 +543,9 @@ function showLoading(t) { document.getElementById('loadingText').textContent = t
 function hideLoading() { document.getElementById('loadingOverlay').classList.remove('active'); }
 
 async function analyzeTranscript() {
-  transcript = document.getElementById('transcript').value.trim();
-  if (!transcript || transcript.length < 50) { alert('Please paste a full transcript first.'); return; }
+  const fromTextarea = document.getElementById('transcript').value.trim();
+  if (fromTextarea) transcript = fromTextarea;
+  if (!transcript || transcript.length < 10) { alert('No transcript to analyze.'); return; }
   showLoading('Claude is reading your notes…');
   try {
     const res = await fetch("https://api.anthropic.com/v1/messages", {
@@ -919,25 +920,13 @@ async function handleRecordingStop() {
     }
 
     const text = await res.text();
-    document.getElementById('transcript').value = text.trim();
     transcript = text.trim();
 
-    document.getElementById('recordBtn').disabled = false;
-    document.getElementById('recordBtn').style.background = 'var(--accent)';
-    document.getElementById('recordBtn').style.boxShadow = '0 4px 16px rgba(192,107,58,0.35)';
-    document.getElementById('recordBtnIcon').innerHTML = '<svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="9" y1="22" x2="15" y2="22"/></svg>';
-    document.getElementById('recordBtnText').textContent = 'Tap to record again';
-    document.getElementById('recordBtnText').style.color = 'var(--text-2)';
-    document.getElementById('recordRing').style.display = 'none';
-    document.getElementById('recordBtn').onclick = continueRecording;
-    document.getElementById('recordingStatus').style.display = 'none';
-
-    // Auto-analyze after transcription
-    showToast('Transcript ready — analyzing…');
+    showToast('Transcribed — analyzing…');
     analyzeTranscript();
   } catch(e) {
     document.getElementById('recordBtn').disabled = false;
-    document.getElementById('recordBtnIcon').innerHTML = '<svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="9" y1="22" x2="15" y2="22"/></svg>';
+    document.getElementById('recordBtn').onclick = toggleRecording;
     document.getElementById('recordBtnText').textContent = 'Tap to record';
     document.getElementById('recordBtnText').style.color = 'var(--text-2)';
     showErrorBanner('Transcription failed: ' + e.message);
