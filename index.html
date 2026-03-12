@@ -445,7 +445,10 @@
       </div>
       <div id="recordBtnText" style="font-size:14px;font-weight:600;color:var(--text-2);letter-spacing:0.2px">Tap to record</div>
       <div id="recordingStatus" style="display:none;text-align:center;font-size:13px;color:var(--accent);font-weight:600;margin-top:4px">
-        <span id="recordTimer">0:00</span> · tap to stop
+        <span id="recordTimer">0:00</span> · <span id="recordFileSize">0 MB</span> · tap to stop
+      </div>
+      <div id="fileSizeWarning" style="display:none;margin-top:8px;padding:8px 14px;background:#FFF3E0;border:1px solid #E65100;border-radius:10px;font-size:12px;color:#E65100;text-align:center;font-weight:600;">
+        ⚠️ Over 25MB — will be split into chunks for transcription
       </div>
     </div>
     <style>
@@ -733,7 +736,7 @@ async function pushToNotion() {
 
   children.push(
     {object:'block',type:'heading_2',heading_2:{rich_text:[{text:{content:'📎 Original Transcript'}}]}},
-    {object:'block',type:'paragraph',paragraph:{rich_text:[{text:{content:transcript.substring(0,1900)}}]}}
+    ...chunkText(transcript, 1900).map(chunk => ({object:'block',type:'paragraph',paragraph:{rich_text:[{text:{content:chunk}}]}}))
   );
 
   try {
@@ -758,6 +761,22 @@ async function pushToNotion() {
     if (res.ok) { st.innerHTML=`<div class="status-bar success" style="margin-bottom:12px"><span class="status-icon">✅</span><span><strong>Saved to Notion!</strong></span></div>`; }
     else { const e=await res.json(); st.innerHTML=`<div class="status-bar error" style="margin-bottom:12px"><span class="status-icon">❌</span><span>${e.message||'Check token & database ID.'}</span></div>`; if(btn){btn.disabled=false;btn.textContent='Retry';} }
   } catch(e) { st.innerHTML=`<div class="status-bar error" style="margin-bottom:12px"><span class="status-icon">❌</span><span>${e.message||'Unknown error'}</span></div>`; if(btn){btn.disabled=false;btn.textContent='Retry';} }
+}
+
+function chunkText(text, maxLen) {
+  const chunks = [];
+  let i = 0;
+  while (i < text.length) {
+    // Try to break at a sentence boundary within the last 20% of the chunk
+    let end = Math.min(i + maxLen, text.length);
+    if (end < text.length) {
+      const breakAt = text.lastIndexOf('. ', end);
+      if (breakAt > i + maxLen * 0.8) end = breakAt + 1;
+    }
+    chunks.push(text.slice(i, end).trim());
+    i = end;
+  }
+  return chunks;
 }
 
 function newNote() { document.getElementById('transcript').value=''; result=null; goTo('main'); }
@@ -809,7 +828,7 @@ async function startRecording() {
   try {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     audioChunks = [];
-    mediaRecorder = new MediaRecorder(stream, { mimeType: getSupportedMimeType() });
+    mediaRecorder = new MediaRecorder(stream, { mimeType: getSupportedMimeType(), audioBitsPerSecond: 32000 });
     mediaRecorder.ondataavailable = e => { if (e.data.size > 0) audioChunks.push(e.data); };
     mediaRecorder.onstop = handleRecordingStop;
     mediaRecorder.start(1000);
@@ -826,6 +845,10 @@ async function startRecording() {
       recordSeconds++;
       const m = Math.floor(recordSeconds / 60), s = recordSeconds % 60;
       document.getElementById('recordTimer').textContent = `${m}:${s.toString().padStart(2,'0')}`;
+      const bytes = audioChunks.reduce((a, c) => a + c.size, 0);
+      const mb = (bytes / 1024 / 1024).toFixed(1);
+      document.getElementById('recordFileSize').textContent = `${mb} MB`;
+      document.getElementById('fileSizeWarning').style.display = bytes > 25 * 1024 * 1024 ? 'block' : 'none';
     }, 1000);
   } catch(e) {
     showErrorBanner('Microphone access denied. Please allow microphone in browser settings.');
@@ -844,6 +867,7 @@ function stopRecording() {
     document.getElementById('recordBtnText').style.color = 'var(--text-3)';
     document.getElementById('recordRing').style.display = 'none';
     document.getElementById('recordingStatus').style.display = 'none';
+    document.getElementById('fileSizeWarning').style.display = 'none';
   }
 }
 
@@ -865,46 +889,88 @@ function getAudioBlobType(rawType) {
   return 'audio/webm';
 }
 
+async function transcribeBlob(blob, ext, label) {
+  const formData = new FormData();
+  formData.append('file', blob, `recording.${ext}`);
+  formData.append('model', 'whisper-large-v3');
+  formData.append('response_format', 'text');
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 5 * 60 * 1000); // 5 min timeout per chunk
+
+  try {
+    const res = await fetch('https://api.groq.com/openai/v1/audio/transcriptions', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${groqKey}` },
+      body: formData,
+      signal: controller.signal
+    });
+    clearTimeout(timeout);
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error?.message || `Groq error ${res.status}`);
+    }
+    return await res.text();
+  } catch(e) {
+    clearTimeout(timeout);
+    if (e.name === 'AbortError') throw new Error(`Transcription timed out after 5 minutes${label ? ' on ' + label : ''}`);
+    throw e;
+  }
+}
+
 async function handleRecordingStop() {
   try {
     const rawType = audioChunks[0]?.type || 'audio/webm';
     const mimeType = getAudioBlobType(rawType);
     const audioBlob = new Blob(audioChunks, { type: mimeType });
     const ext = mimeType.includes('mp4') ? 'm4a' : mimeType.includes('ogg') ? 'ogg' : 'webm';
+    const fileSizeMB = audioBlob.size / 1024 / 1024;
 
     // Store blob globally — available for download from result or error screen
     window._lastAudioBlob = audioBlob;
     window._lastAudioExt = ext;
     showAudioSaveButton();
 
-    const formData = new FormData();
-    formData.append('file', audioBlob, `recording.${ext}`);
-    formData.append('model', 'whisper-large-v3');
-    formData.append('response_format', 'text');
+    const GROQ_LIMIT = 24 * 1024 * 1024; // 24MB to stay safely under 25MB
+    let transcript_text = '';
 
-    const res = await fetch('https://api.groq.com/openai/v1/audio/transcriptions', {
-      method: 'POST',
-      headers: { 'Authorization': `Bearer ${groqKey}` },
-      body: formData
-    });
-
-    if (!res.ok) {
-      const err = await res.json();
-      throw new Error(err.error?.message || 'Groq transcription failed');
+    if (audioBlob.size <= GROQ_LIMIT) {
+      // Single chunk — normal path
+      showStatus(`Transcribing (${fileSizeMB.toFixed(1)} MB)…`);
+      transcript_text = await transcribeBlob(audioBlob, ext, null);
+    } else {
+      // Split into chunks by bytes
+      const numChunks = Math.ceil(audioBlob.size / GROQ_LIMIT);
+      showStatus(`Large file (${fileSizeMB.toFixed(1)} MB) — transcribing in ${numChunks} parts…`);
+      const chunkSize = Math.ceil(audioBlob.size / numChunks);
+      const parts = [];
+      for (let i = 0; i < numChunks; i++) {
+        const start = i * chunkSize;
+        const end = Math.min(start + chunkSize, audioBlob.size);
+        const chunk = new Blob([audioBlob.slice(start, end)], { type: mimeType });
+        showStatus(`Transcribing part ${i + 1} of ${numChunks}…`);
+        const chunkText = await transcribeBlob(chunk, ext, `part ${i + 1}`);
+        parts.push(chunkText.trim());
+      }
+      transcript_text = parts.join(' ');
     }
 
-    const text = await res.text();
-    transcript = text.trim();
-
+    transcript = transcript_text.trim();
     showToast('Transcribed — analyzing…');
     analyzeTranscript();
+
   } catch(e) {
     document.getElementById('recordBtn').disabled = false;
     document.getElementById('recordBtn').onclick = toggleRecording;
     document.getElementById('recordBtnText').textContent = 'Tap to record';
     document.getElementById('recordBtnText').style.color = 'var(--text-2)';
-    showErrorBanner('Transcription failed: ' + e.message);
+    showErrorBanner(`❌ ${e.message}`);
   }
+}
+
+function showStatus(msg) {
+  document.getElementById('recordBtnText').textContent = msg;
+  document.getElementById('recordBtnText').style.color = 'var(--text-3)';
 }
 
 function showToast(msg) {
@@ -916,8 +982,8 @@ function showToast(msg) {
 </script>
 
 <div style="text-align:center;padding:32px 0 calc(24px + env(safe-area-inset-bottom));font-family:'DM Mono',monospace;font-size:11px;color:var(--text-3);opacity:0.5;">
-  v2.0 — Mar 2026<br>
-  <span style="font-size:10px;">ios audio/mp4 forced · save button · groq whisper · three note types</span>
+  v2.1 — Mar 2026<br>
+  <span style="font-size:10px;">chunked transcription · file size display · notion full transcript · 5min timeout</span>
 </div>
 
 </body>
