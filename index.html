@@ -853,9 +853,17 @@ function getSupportedMimeType() {
   return '';
 }
 
+function getAudioBlobType(rawType) {
+  // iOS Safari reports video/mp4 even for audio-only — normalize to audio/mp4
+  if (rawType.includes('mp4')) return 'audio/mp4';
+  if (rawType.includes('ogg')) return 'audio/ogg';
+  return 'audio/webm';
+}
+
 async function handleRecordingStop() {
   try {
-    const mimeType = audioChunks[0]?.type || 'audio/webm';
+    const rawType = audioChunks[0]?.type || 'audio/webm';
+    const mimeType = getAudioBlobType(rawType);
     const audioBlob = new Blob(audioChunks, { type: mimeType });
     const ext = mimeType.includes('mp4') ? 'm4a' : mimeType.includes('ogg') ? 'ogg' : 'webm';
 
@@ -903,8 +911,8 @@ function showToast(msg) {
 </script>
 
 <div style="text-align:center;padding:32px 0 calc(24px + env(safe-area-inset-bottom));font-family:'DM Mono',monospace;font-size:11px;color:var(--text-3);opacity:0.5;">
-  v1.8 — Mar 2026<br>
-  <span style="font-size:10px;">save recording button · groq whisper · three note types · github pages</span>
+  v1.9 — Mar 2026<br>
+  <span style="font-size:10px;">audio save button · ios mp4 fix · groq whisper · three note types</span>
 </div>
 
 </body>
