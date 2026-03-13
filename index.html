@@ -598,7 +598,9 @@ async function analyzeTranscript() {
         model: "claude-haiku-4-5-20251001",
         max_tokens: 2000,
         system: "You analyze voice transcripts and produce structured notes. First detect the type, then return the matching JSON schema. Respond with valid JSON only — no markdown, no backticks, no extra text.\n\nType detection rules:\n- Meeting: conversation with others, multiple people mentioned, uses 'we/he/she said/discussed'\n- Todo: planning tasks, uses 'I need to/today I/this week I/follow up/to-do'\n- BrainDump: one person thinking through a problem or idea, no clear tasks or other people\n\nSchemas:\nMeeting: {type:'Meeting',title:'...',tags:['...'],summary:'2-3 sentence prose',participants:['...'],keyMoments:['3-5 natural observations, quotes, tensions'],keyDecisions:['...'],actionItems:[{task:'...',owner:'...',due:'...'}],nextSteps:['...']}\nTodo: {type:'Todo',title:'...',tags:['...'],priorities:['top 3 most important things, ordered'],tasks:[{task:'...',context:'one line of why or how if mentioned'}],affirmation:'one powerful sentence tuned for an ENFJ — connect their tasks to impact, meaning, and moving people forward. Not generic. Speak to what is actually on their plate today.'}\nBrainDump: {type:'BrainDump',title:'...',tags:['...'],coreThought:'one sentence — what this is really about',ideas:[{cluster:'theme name',points:['...']}],openQuestions:['...'],nextSteps:['...']}",
-        messages: [{ role: "user", content: `Analyze this transcript and return ONLY valid JSON matching the correct schema.${isContinuation && window._lastNoteType ? `\n\nIMPORTANT: This is a continuation of a previous session. You MUST use type "${window._lastNoteType}" — do not re-detect the type.` : ''}\n\nTranscript:\n${combinedTranscript}` }]
+        messages: [{ role: "user", content: isContinuation && window._lastNoteType
+          ? `This is a continuation of a session. Analyze the FULL combined transcript (Part 1 + Part 2) and return ONLY valid JSON.\n\nRules:\n- You MUST use type "${window._lastNoteType}" — do not re-detect\n- Produce a single unified summary covering the entire session\n- Extract ALL key moments, decisions, and action items from both parts\n- Return the full schema with all fields populated\n\nTranscript:\n${combinedTranscript}`
+          : `Analyze this transcript and return ONLY valid JSON matching the correct schema:\n\nTranscript:\n${combinedTranscript}` }]
       })
     });
     if (!res.ok) { const e = await res.json(); throw new Error(e.error?.message || 'API error'); }
@@ -866,18 +868,72 @@ async function appendToNotion(pageId, newTranscript, combinedResult) {
     pushToNotion();
     return;
   }
-  const divider = {object:'block',type:'divider',divider:{}};
+  const type = combinedResult.type || window._lastNoteType || 'Meeting';
+
+  let typeBlocks = [];
+  if (type === 'Meeting') {
+    typeBlocks = [
+      ...(combinedResult.summary ? [{object:'block',type:'paragraph',paragraph:{rich_text:[{text:{content:combinedResult.summary}}]}}] : []),
+      ...(combinedResult.participants||[]).length ? [
+        {object:'block',type:'heading_3',heading_3:{rich_text:[{text:{content:'👥 All Participants'}}]}},
+        {object:'block',type:'paragraph',paragraph:{rich_text:[{text:{content:(combinedResult.participants||[]).join(', ')}}]}}
+      ] : [],
+      ...(combinedResult.keyMoments||[]).length ? [
+        {object:'block',type:'heading_3',heading_3:{rich_text:[{text:{content:'💬 All Key Moments'}}]}},
+        ...(combinedResult.keyMoments||[]).map(m=>({object:'block',type:'bulleted_list_item',bulleted_list_item:{rich_text:[{text:{content:m}}]}}))
+      ] : [],
+      ...(combinedResult.keyDecisions||[]).length ? [
+        {object:'block',type:'heading_3',heading_3:{rich_text:[{text:{content:'⚡ All Decisions'}}]}},
+        ...(combinedResult.keyDecisions||[]).map(d=>({object:'block',type:'bulleted_list_item',bulleted_list_item:{rich_text:[{text:{content:d}}]}}))
+      ] : [],
+      ...(combinedResult.actionItems||[]).length ? [
+        {object:'block',type:'heading_3',heading_3:{rich_text:[{text:{content:'✅ All Action Items'}}]}},
+        ...(combinedResult.actionItems||[]).map(a=>({object:'block',type:'to_do',to_do:{rich_text:[{text:{content:`${a.task} — ${a.owner} (${a.due})`}}],checked:false}}))
+      ] : [],
+      ...(combinedResult.nextSteps||[]).length ? [
+        {object:'block',type:'heading_3',heading_3:{rich_text:[{text:{content:'🔮 Next Steps'}}]}},
+        ...(combinedResult.nextSteps||[]).map(s=>({object:'block',type:'numbered_list_item',numbered_list_item:{rich_text:[{text:{content:s}}]}}))
+      ] : []
+    ];
+  } else if (type === 'Todo') {
+    typeBlocks = [
+      ...(combinedResult.affirmation ? [{object:'block',type:'quote',quote:{rich_text:[{text:{content:'✨ ' + combinedResult.affirmation}}]}}] : []),
+      ...(combinedResult.priorities||[]).length ? [
+        {object:'block',type:'heading_3',heading_3:{rich_text:[{text:{content:'🎯 All Priorities'}}]}},
+        ...(combinedResult.priorities||[]).map(p=>({object:'block',type:'numbered_list_item',numbered_list_item:{rich_text:[{text:{content:p}}]}}))
+      ] : [],
+      ...(combinedResult.tasks||[]).length ? [
+        {object:'block',type:'heading_3',heading_3:{rich_text:[{text:{content:'✅ All Tasks'}}]}},
+        ...(combinedResult.tasks||[]).map(t=>({object:'block',type:'to_do',to_do:{rich_text:[{text:{content:t.task+(t.context?' — '+t.context:'')}}],checked:false}}))
+      ] : []
+    ];
+  } else {
+    // BrainDump
+    typeBlocks = [
+      ...(combinedResult.coreThought ? [
+        {object:'block',type:'heading_3',heading_3:{rich_text:[{text:{content:'💡 Core Thought'}}]}},
+        {object:'block',type:'paragraph',paragraph:{rich_text:[{text:{content:combinedResult.coreThought}}]}}
+      ] : []),
+      ...(combinedResult.ideas||[]).flatMap(cluster => [
+        {object:'block',type:'heading_3',heading_3:{rich_text:[{text:{content:cluster.cluster}}]}},
+        ...(cluster.points||[]).map(p=>({object:'block',type:'bulleted_list_item',bulleted_list_item:{rich_text:[{text:{content:p}}]}}))
+      ]),
+      ...(combinedResult.openQuestions||[]).length ? [
+        {object:'block',type:'heading_3',heading_3:{rich_text:[{text:{content:'❓ All Open Questions'}}]}},
+        ...(combinedResult.openQuestions||[]).map(q=>({object:'block',type:'bulleted_list_item',bulleted_list_item:{rich_text:[{text:{content:q}}]}}))
+      ] : [],
+      ...(combinedResult.nextSteps||[]).length ? [
+        {object:'block',type:'heading_3',heading_3:{rich_text:[{text:{content:'🔮 Next Steps'}}]}},
+        ...(combinedResult.nextSteps||[]).map(s=>({object:'block',type:'numbered_list_item',numbered_list_item:{rich_text:[{text:{content:s}}]}}))
+      ] : []
+    ];
+  }
+
   const continuationBlocks = [
-    divider,
-    {object:'block',type:'heading_2',heading_2:{rich_text:[{text:{content:'⏺ Continuation — Updated Summary'}}]}},
-    {object:'block',type:'paragraph',paragraph:{rich_text:[{text:{content:combinedResult.summary||''}}]}},
-    {object:'block',type:'heading_2',heading_2:{rich_text:[{text:{content:'💬 Key Moments (continued)'}}]}},
-    ...(combinedResult.keyMoments||[]).map(m=>({object:'block',type:'bulleted_list_item',bulleted_list_item:{rich_text:[{text:{content:m}}]}})),
-    {object:'block',type:'heading_2',heading_2:{rich_text:[{text:{content:'⚡ Decisions (continued)'}}]}},
-    ...(combinedResult.keyDecisions||[]).map(d=>({object:'block',type:'bulleted_list_item',bulleted_list_item:{rich_text:[{text:{content:d}}]}})),
-    {object:'block',type:'heading_2',heading_2:{rich_text:[{text:{content:'✅ Action Items (continued)'}}]}},
-    ...(combinedResult.actionItems||[]).map(a=>({object:'block',type:'to_do',to_do:{rich_text:[{text:{content:`${a.task} — ${a.owner} (${a.due})`}}],checked:false}})),
-    {object:'block',type:'heading_2',heading_2:{rich_text:[{text:{content:'📎 Transcript (Part 2)'}}]}},
+    {object:'block',type:'divider',divider:{}},
+    {object:'block',type:'heading_2',heading_2:{rich_text:[{text:{content:'🔄 Full Session Update (Parts 1 + 2)'}}]}},
+    ...typeBlocks,
+    {object:'block',type:'heading_3',heading_3:{rich_text:[{text:{content:'📎 Part 2 Transcript'}}]}},
     ...chunkText(newTranscript, 1900).map(chunk=>({object:'block',type:'paragraph',paragraph:{rich_text:[{text:{content:chunk}}]}}))
   ];
 
@@ -1197,8 +1253,8 @@ function showToast(msg) {
 </script>
 
 <div style="text-align:center;padding:32px 0 calc(24px + env(safe-area-inset-bottom));font-family:'DM Mono',monospace;font-size:11px;color:var(--text-3);opacity:0.5;">
-  v2.6 — Mar 2026<br>
-  <span style="font-size:10px;">continue button placement · type lock · breadcrumb nav · floating mic</span>
+  v2.7 — Mar 2026<br>
+  <span style="font-size:10px;">type-aware append · all sections updated per type · meeting todo braindump</span>
 </div>
 
 </body>
