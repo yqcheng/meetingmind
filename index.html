@@ -574,7 +574,13 @@ async function analyzeTranscript() {
   const fromTextarea = document.getElementById('transcript').value.trim();
   if (fromTextarea) transcript = fromTextarea;
   if (!transcript || transcript.length < 10) { alert('No transcript to analyze.'); return; }
-  showLoading('Claude is reading your notes…');
+
+  const isContinuation = window._continuationMode && window._lastNotionPageId && window._lastTranscript;
+  const combinedTranscript = isContinuation
+    ? `[PART 1]\n${window._lastTranscript}\n\n[PART 2]\n${transcript}`
+    : transcript;
+
+  showLoading(isContinuation ? 'Merging and re-analyzing full meeting…' : 'Claude is reading your notes…');
   try {
     const res = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
@@ -583,14 +589,21 @@ async function analyzeTranscript() {
         model: "claude-haiku-4-5-20251001",
         max_tokens: 2000,
         system: "You analyze voice transcripts and produce structured notes. First detect the type, then return the matching JSON schema. Respond with valid JSON only — no markdown, no backticks, no extra text.\n\nType detection rules:\n- Meeting: conversation with others, multiple people mentioned, uses 'we/he/she said/discussed'\n- Todo: planning tasks, uses 'I need to/today I/this week I/follow up/to-do'\n- BrainDump: one person thinking through a problem or idea, no clear tasks or other people\n\nSchemas:\nMeeting: {type:'Meeting',title:'...',tags:['...'],summary:'2-3 sentence prose',participants:['...'],keyMoments:['3-5 natural observations, quotes, tensions'],keyDecisions:['...'],actionItems:[{task:'...',owner:'...',due:'...'}],nextSteps:['...']}\nTodo: {type:'Todo',title:'...',tags:['...'],priorities:['top 3 most important things, ordered'],tasks:[{task:'...',context:'one line of why or how if mentioned'}],affirmation:'one powerful sentence tuned for an ENFJ — connect their tasks to impact, meaning, and moving people forward. Not generic. Speak to what is actually on their plate today.'}\nBrainDump: {type:'BrainDump',title:'...',tags:['...'],coreThought:'one sentence — what this is really about',ideas:[{cluster:'theme name',points:['...']}],openQuestions:['...'],nextSteps:['...']}",
-        messages: [{ role: "user", content: `Analyze this transcript and return ONLY valid JSON matching the correct schema:\n\nTranscript:\n${transcript}` }]
+        messages: [{ role: "user", content: `Analyze this transcript and return ONLY valid JSON matching the correct schema:\n\nTranscript:\n${combinedTranscript}` }]
       })
     });
     if (!res.ok) { const e = await res.json(); throw new Error(e.error?.message || 'API error'); }
     const data = await res.json();
     const raw = data.content[0].text.trim().replace(/^```json\s*/,'').replace(/^```\s*/,'').replace(/```\s*$/,'');
     result = JSON.parse(raw);
-    hideLoading(); renderResult(); goTo('result'); if (notionToken && databaseId) { pushToNotion(); }
+    hideLoading(); renderResult(); goTo('result');
+    if (notionToken && databaseId) {
+      if (isContinuation) {
+        appendToNotion(window._lastNotionPageId, transcript, result);
+      } else {
+        pushToNotion();
+      }
+    }
   } catch(e) { hideLoading(); showErrorBanner('Error: ' + e.message + '\n\nCheck your API key is correct and try again.'); }
 }
 
@@ -782,9 +795,94 @@ async function pushToNotion() {
         }
       })
     });
-    if (res.ok) { st.innerHTML=`<div class="status-bar success" style="margin-bottom:12px"><span class="status-icon">✅</span><span><strong>Saved to Notion!</strong></span></div>`; }
+    if (res.ok) {
+      const data = await res.json();
+      window._lastNotionPageId = data.id || null;
+      window._lastTranscript = transcript;
+      st.innerHTML=`<div class="status-bar success" style="margin-bottom:12px"><span class="status-icon">✅</span><span><strong>Saved to Notion!</strong></span></div>`;
+      // Show continue button if it was a Meeting
+      if (type === 'Meeting' && window._lastNotionPageId) showContinueButton();
+    }
     else { const e=await res.json(); st.innerHTML=`<div class="status-bar error" style="margin-bottom:12px"><span class="status-icon">❌</span><span>${e.message||'Check token & database ID.'}</span></div>`; if(btn){btn.disabled=false;btn.textContent='Retry';} }
   } catch(e) { st.innerHTML=`<div class="status-bar error" style="margin-bottom:12px"><span class="status-icon">❌</span><span>${e.message||'Unknown error'}</span></div>`; if(btn){btn.disabled=false;btn.textContent='Retry';} }
+}
+
+function showContinueButton() {
+  if (document.getElementById('continueBtn')) return;
+  const btn = document.createElement('button');
+  btn.id = 'continueBtn';
+  btn.innerHTML = '⏺ Continue recording this meeting';
+  btn.style.cssText = 'display:block;width:calc(100% - 48px);margin:12px auto 0;padding:12px;background:none;border:1.5px solid var(--accent);color:var(--accent);border-radius:14px;font-family:Nunito,sans-serif;font-size:14px;font-weight:700;cursor:pointer;text-align:center;';
+  btn.onclick = continueMeeting;
+  const notionStatus = document.getElementById('notionStatus');
+  notionStatus?.parentNode?.insertBefore(btn, notionStatus.nextSibling);
+}
+
+function continueMeeting() {
+  // Mark as continuation mode — recorder will merge transcripts and append to existing page
+  window._continuationMode = true;
+  // Reset UI but keep _lastNotionPageId and _lastTranscript
+  audioChunks = [];
+  window._lastAudioBlob = null;
+  window._lastAudioExt = null;
+  const btn = document.getElementById('recordBtn');
+  btn.disabled = false;
+  btn.onclick = toggleRecording;
+  btn.style.background = 'var(--accent)';
+  btn.style.boxShadow = '0 6px 24px rgba(192,107,58,0.40)';
+  document.getElementById('recordBtnIcon').innerHTML = `<svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="9" y1="22" x2="15" y2="22"/></svg>`;
+  document.getElementById('recordBtnText').textContent = '⏺ Continuing meeting…';
+  document.getElementById('recordBtnText').style.color = 'var(--accent)';
+  document.getElementById('recordingStatus').style.display = 'none';
+  document.getElementById('recordTimer').textContent = '0:00';
+  document.getElementById('recordFileSize').textContent = '0 MB';
+  document.getElementById('fileSizeWarning').style.display = 'none';
+  document.getElementById('recordRing').style.display = 'none';
+  document.getElementById('errorBanner').style.display = 'none';
+  const saveBtn = document.getElementById('audioSaveBtn');
+  if (saveBtn) saveBtn.remove();
+  const contBtn = document.getElementById('continueBtn');
+  if (contBtn) contBtn.remove();
+  goTo('main');
+  // Show a subtle banner so user knows they're in continuation mode
+  setTimeout(() => {
+    showToast('Continuation mode — will append to existing note');
+  }, 300);
+}
+
+async function appendToNotion(pageId, newTranscript, combinedResult) {
+  const st = document.getElementById('notionStatus');
+  const type = combinedResult.type || 'Meeting';
+  const divider = {object:'block',type:'divider',divider:{}};
+  const continuationBlocks = [
+    divider,
+    {object:'block',type:'heading_2',heading_2:{rich_text:[{text:{content:'⏺ Continuation — Updated Summary'}}]}},
+    {object:'block',type:'paragraph',paragraph:{rich_text:[{text:{content:combinedResult.summary||''}}]}},
+    {object:'block',type:'heading_2',heading_2:{rich_text:[{text:{content:'💬 Key Moments (continued)'}}]}},
+    ...(combinedResult.keyMoments||[]).map(m=>({object:'block',type:'bulleted_list_item',bulleted_list_item:{rich_text:[{text:{content:m}}]}})),
+    {object:'block',type:'heading_2',heading_2:{rich_text:[{text:{content:'⚡ Decisions (continued)'}}]}},
+    ...(combinedResult.keyDecisions||[]).map(d=>({object:'block',type:'bulleted_list_item',bulleted_list_item:{rich_text:[{text:{content:d}}]}})),
+    {object:'block',type:'heading_2',heading_2:{rich_text:[{text:{content:'✅ Action Items (continued)'}}]}},
+    ...(combinedResult.actionItems||[]).map(a=>({object:'block',type:'to_do',to_do:{rich_text:[{text:{content:`${a.task} — ${a.owner} (${a.due})`}}],checked:false}})),
+    {object:'block',type:'heading_2',heading_2:{rich_text:[{text:{content:'📎 Transcript (Part 2)'}}]}},
+    ...chunkText(newTranscript, 1900).map(chunk=>({object:'block',type:'paragraph',paragraph:{rich_text:[{text:{content:chunk}}]}}))
+  ];
+
+  const res = await fetch('https://notion-proxy.529165595.workers.dev/append', {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ notionToken, pageId, blocks: continuationBlocks })
+  });
+
+  if (res.ok) {
+    st.innerHTML = `<div class="status-bar success" style="margin-bottom:12px"><span class="status-icon">✅</span><span><strong>Appended to existing note!</strong></span></div>`;
+    window._continuationMode = false;
+    window._lastNotionPageId = null;
+    window._lastTranscript = null;
+  } else {
+    const e = await res.json();
+    st.innerHTML = `<div class="status-bar error" style="margin-bottom:12px"><span class="status-icon">❌</span><span>${e.message||'Append failed'}</span></div>`;
+  }
 }
 
 function chunkText(text, maxLen) {
@@ -1037,8 +1135,8 @@ function showToast(msg) {
 </script>
 
 <div style="text-align:center;padding:32px 0 calc(24px + env(safe-area-inset-bottom));font-family:'DM Mono',monospace;font-size:11px;color:var(--text-3);opacity:0.5;">
-  v2.2 — Mar 2026<br>
-  <span style="font-size:10px;">full UI reset on new note · chunked transcription · file size display</span>
+  v2.3 — Mar 2026<br>
+  <span style="font-size:10px;">continue meeting · floating record btn · chunked transcription · full notion transcript</span>
 </div>
 
 </body>
