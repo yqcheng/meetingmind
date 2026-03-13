@@ -484,7 +484,32 @@
     </button>
     <div><div class="topbar-title" id="resultTitle">Notes</div><div class="topbar-sub" id="resultDate"></div></div>
   </div>
-  <div class="scroll-area" id="resultArea"></div>
+  <div class="scroll-area" id="resultArea" style="padding-bottom: 100px"></div>
+
+  <!-- Floating new recording button -->
+  <button onclick="newNote()" style="
+    position:fixed;
+    bottom:calc(28px + env(safe-area-inset-bottom));
+    right:24px;
+    width:56px;height:56px;
+    border-radius:50%;
+    border:none;
+    background:var(--accent);
+    color:white;
+    cursor:pointer;
+    display:flex;align-items:center;justify-content:center;
+    box-shadow:0 4px 20px rgba(192,107,58,0.45);
+    -webkit-tap-highlight-color:transparent;
+    z-index:100;
+    transition:transform 0.15s, box-shadow 0.15s;
+  " onmousedown="this.style.transform='scale(0.92)'" onmouseup="this.style.transform='scale(1)'" ontouchstart="this.style.transform='scale(0.92)'" ontouchend="this.style.transform='scale(1)'">
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="9" y="2" width="6" height="12" rx="3"/>
+      <path d="M5 10a7 7 0 0 0 14 0"/>
+      <line x1="12" y1="19" x2="12" y2="22"/>
+      <line x1="9" y1="22" x2="15" y2="22"/>
+    </svg>
+  </button>
 </div>
 
 <script>
@@ -586,8 +611,7 @@ function renderResult() {
         <div class="copy-box" id="copyBox">${buildCopyText()}</div>
         <button class="btn btn-secondary" onclick="copyText()">Copy Formatted Text</button>
       </div>
-    </div>
-    <button class="btn btn-outline" onclick="newNote()" style="margin-top:4px">+ New Note</button>`;
+    </div>`;
 
   const steps = `<div class="steps"><div class="step done"></div><div class="step done"></div><div class="step done"></div></div>`;
 
@@ -779,7 +803,38 @@ function chunkText(text, maxLen) {
   return chunks;
 }
 
-function newNote() { document.getElementById('transcript').value=''; result=null; goTo('main'); }
+function newNote() {
+  // Reset transcript and result
+  document.getElementById('transcript').value = '';
+  result = null;
+  audioChunks = [];
+  window._lastAudioBlob = null;
+  window._lastAudioExt = null;
+
+  // Reset record button
+  const btn = document.getElementById('recordBtn');
+  btn.disabled = false;
+  btn.onclick = toggleRecording;
+  btn.style.background = 'var(--accent)';
+  btn.style.boxShadow = '0 6px 24px rgba(192,107,58,0.40)';
+  document.getElementById('recordBtnIcon').innerHTML = `<svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="9" y1="22" x2="15" y2="22"/></svg>`;
+  document.getElementById('recordBtnText').textContent = 'Tap to record';
+  document.getElementById('recordBtnText').style.color = 'var(--text-2)';
+
+  // Hide all status elements
+  document.getElementById('recordingStatus').style.display = 'none';
+  document.getElementById('recordTimer').textContent = '0:00';
+  document.getElementById('recordFileSize').textContent = '0 MB';
+  document.getElementById('fileSizeWarning').style.display = 'none';
+  document.getElementById('recordRing').style.display = 'none';
+  document.getElementById('errorBanner').style.display = 'none';
+
+  // Remove save button if present
+  const saveBtn = document.getElementById('audioSaveBtn');
+  if (saveBtn) saveBtn.remove();
+
+  goTo('main');
+}
 
 function showErrorBanner(msg) {
   const banner = document.getElementById('errorBanner');
@@ -982,8 +1037,8 @@ function showToast(msg) {
 </script>
 
 <div style="text-align:center;padding:32px 0 calc(24px + env(safe-area-inset-bottom));font-family:'DM Mono',monospace;font-size:11px;color:var(--text-3);opacity:0.5;">
-  v2.1 — Mar 2026<br>
-  <span style="font-size:10px;">chunked transcription · file size display · notion full transcript · 5min timeout</span>
+  v2.2 — Mar 2026<br>
+  <span style="font-size:10px;">full UI reset on new note · chunked transcription · file size display</span>
 </div>
 
 </body>
