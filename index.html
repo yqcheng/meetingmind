@@ -598,7 +598,7 @@ async function analyzeTranscript() {
         model: "claude-haiku-4-5-20251001",
         max_tokens: 2000,
         system: "You analyze voice transcripts and produce structured notes. First detect the type, then return the matching JSON schema. Respond with valid JSON only — no markdown, no backticks, no extra text.\n\nType detection rules:\n- Meeting: conversation with others, multiple people mentioned, uses 'we/he/she said/discussed'\n- Todo: planning tasks, uses 'I need to/today I/this week I/follow up/to-do'\n- BrainDump: one person thinking through a problem or idea, no clear tasks or other people\n\nSchemas:\nMeeting: {type:'Meeting',title:'...',tags:['...'],summary:'2-3 sentence prose',participants:['...'],keyMoments:['3-5 natural observations, quotes, tensions'],keyDecisions:['...'],actionItems:[{task:'...',owner:'...',due:'...'}],nextSteps:['...']}\nTodo: {type:'Todo',title:'...',tags:['...'],priorities:['top 3 most important things, ordered'],tasks:[{task:'...',context:'one line of why or how if mentioned'}],affirmation:'one powerful sentence tuned for an ENFJ — connect their tasks to impact, meaning, and moving people forward. Not generic. Speak to what is actually on their plate today.'}\nBrainDump: {type:'BrainDump',title:'...',tags:['...'],coreThought:'one sentence — what this is really about',ideas:[{cluster:'theme name',points:['...']}],openQuestions:['...'],nextSteps:['...']}",
-        messages: [{ role: "user", content: `Analyze this transcript and return ONLY valid JSON matching the correct schema:\n\nTranscript:\n${combinedTranscript}` }]
+        messages: [{ role: "user", content: `Analyze this transcript and return ONLY valid JSON matching the correct schema.${isContinuation && window._lastNoteType ? `\n\nIMPORTANT: This is a continuation of a previous session. You MUST use type "${window._lastNoteType}" — do not re-detect the type.` : ''}\n\nTranscript:\n${combinedTranscript}` }]
       })
     });
     if (!res.ok) { const e = await res.json(); throw new Error(e.error?.message || 'API error'); }
@@ -627,8 +627,8 @@ function renderResult() {
     <div class="card">
       <div class="card-header"><div class="card-icon" style="background:#F0EBE0">📝</div><div><div class="card-title">Send to Notion</div><div class="card-desc">${notionToken?'Ready to push':'Copy text below'}</div></div></div>
       <div class="card-body">
-        <div id="notionStatus"></div>
-        ${notionToken && databaseId ? `<div class="status-bar info" style="margin-bottom:12px"><span class="status-icon">⏳</span><span>Pushing to Notion…</span></div>` : `<div class="status-bar warn" style="margin-bottom:12px"><span class="status-icon">⚠️</span><span>No Notion token — copy below.</span></div>`}
+        <div id="notionStatus">${notionToken && databaseId ? `<div class="status-bar info" style="margin-bottom:12px"><span class="status-icon">⏳</span><span>Pushing to Notion…</span></div>` : `<div class="status-bar warn" style="margin-bottom:12px"><span class="status-icon">⚠️</span><span>No Notion token — copy below.</span></div>`}</div>
+        <div id="continueArea"></div>
         <div style="font-size:10px;font-weight:700;letter-spacing:0.8px;text-transform:uppercase;color:var(--text-3);margin-bottom:8px">Formatted output</div>
         <div class="copy-box" id="copyBox">${buildCopyText()}</div>
         <button class="btn btn-secondary" onclick="copyText()">Copy Formatted Text</button>
@@ -809,6 +809,7 @@ async function pushToNotion() {
       // Notion returns id with hyphens e.g. "31f66a4c-349c-..."
       window._lastNotionPageId = data.id || data.object === 'page' ? data.id : null;
       window._lastTranscript = transcript;
+      window._lastNoteType = type; // Lock type for continuation
       console.log('Notion page ID:', window._lastNotionPageId, 'data:', data);
       st.innerHTML=`<div class="status-bar success" style="margin-bottom:12px"><span class="status-icon">✅</span><span><strong>Saved to Notion!</strong></span></div>`;
       // Show continue button for Meeting type — show regardless of page ID so button is always visible
@@ -819,14 +820,9 @@ async function pushToNotion() {
 }
 
 function showContinueButton() {
-  if (document.getElementById('continueBtn')) return;
-  const btn = document.createElement('button');
-  btn.id = 'continueBtn';
-  btn.innerHTML = '⏺ Continue recording this meeting';
-  btn.style.cssText = 'display:block;width:calc(100% - 48px);margin:12px auto 0;padding:12px;background:none;border:1.5px solid var(--accent);color:var(--accent);border-radius:14px;font-family:Nunito,sans-serif;font-size:14px;font-weight:700;cursor:pointer;text-align:center;';
-  btn.onclick = continueMeeting;
-  const notionStatus = document.getElementById('notionStatus');
-  notionStatus?.parentNode?.insertBefore(btn, notionStatus.nextSibling);
+  const area = document.getElementById('continueArea');
+  if (!area || document.getElementById('continueBtn')) return;
+  area.innerHTML = `<button id="continueBtn" onclick="continueMeeting()" style="display:block;width:100%;margin-bottom:12px;padding:12px;background:none;border:1.5px solid var(--accent);color:var(--accent);border-radius:14px;font-family:Nunito,sans-serif;font-size:14px;font-weight:700;cursor:pointer;text-align:center;">⏺ Continue recording this session</button>`;
 }
 
 function continueMeeting() {
@@ -896,6 +892,7 @@ async function appendToNotion(pageId, newTranscript, combinedResult) {
     window._continuationMode = false;
     window._lastNotionPageId = null;
     window._lastTranscript = null;
+    window._lastNoteType = null;
   } else {
     const e = await res.json();
     st.innerHTML = `<div class="status-bar error" style="margin-bottom:12px"><span class="status-icon">❌</span><span>${e.message||'Append failed'}</span></div>`;
@@ -993,6 +990,7 @@ function newNote() {
   window._continuationMode = false;
   window._lastNotionPageId = null;
   window._lastTranscript = null;
+  window._lastNoteType = null;
   setRecordingScreenContext(false);
 
   goTo('main');
@@ -1199,8 +1197,8 @@ function showToast(msg) {
 </script>
 
 <div style="text-align:center;padding:32px 0 calc(24px + env(safe-area-inset-bottom));font-family:'DM Mono',monospace;font-size:11px;color:var(--text-3);opacity:0.5;">
-  v2.4 — Mar 2026<br>
-  <span style="font-size:10px;">breadcrumb nav · continue session · forward/back between recorder and result</span>
+  v2.6 — Mar 2026<br>
+  <span style="font-size:10px;">continue button placement · type lock · breadcrumb nav · floating mic</span>
 </div>
 
 </body>
