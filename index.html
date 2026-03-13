@@ -610,7 +610,7 @@ async function analyzeTranscript() {
     hideLoading(); renderResult(); goTo('result');
     if (notionToken && databaseId) {
       if (isContinuation) {
-        appendToNotion(window._lastNotionPageId, transcript, result);
+        replaceNotionPage(window._lastNotionPageId, transcript, result);
       } else {
         pushToNotion();
       }
@@ -860,7 +860,7 @@ function continueMeeting() {
   }, 300);
 }
 
-async function appendToNotion(pageId, newTranscript, combinedResult) {
+async function replaceNotionPage(pageId, newTranscript, combinedResult) {
   const st = document.getElementById('notionStatus');
   if (!pageId) {
     st.innerHTML = `<div class="status-bar error" style="margin-bottom:12px"><span class="status-icon">❌</span><span>Could not retrieve Notion page ID — continuation saved as new note instead.</span></div>`;
@@ -875,19 +875,19 @@ async function appendToNotion(pageId, newTranscript, combinedResult) {
     typeBlocks = [
       ...(combinedResult.summary ? [{object:'block',type:'paragraph',paragraph:{rich_text:[{text:{content:combinedResult.summary}}]}}] : []),
       ...(combinedResult.participants||[]).length ? [
-        {object:'block',type:'heading_3',heading_3:{rich_text:[{text:{content:'👥 All Participants'}}]}},
+        {object:'block',type:'heading_3',heading_3:{rich_text:[{text:{content:'👥 Participants'}}]}},
         {object:'block',type:'paragraph',paragraph:{rich_text:[{text:{content:(combinedResult.participants||[]).join(', ')}}]}}
       ] : [],
       ...(combinedResult.keyMoments||[]).length ? [
-        {object:'block',type:'heading_3',heading_3:{rich_text:[{text:{content:'💬 All Key Moments'}}]}},
+        {object:'block',type:'heading_3',heading_3:{rich_text:[{text:{content:'💬 Key Moments'}}]}},
         ...(combinedResult.keyMoments||[]).map(m=>({object:'block',type:'bulleted_list_item',bulleted_list_item:{rich_text:[{text:{content:m}}]}}))
       ] : [],
       ...(combinedResult.keyDecisions||[]).length ? [
-        {object:'block',type:'heading_3',heading_3:{rich_text:[{text:{content:'⚡ All Decisions'}}]}},
+        {object:'block',type:'heading_3',heading_3:{rich_text:[{text:{content:'⚡ Key Decisions'}}]}},
         ...(combinedResult.keyDecisions||[]).map(d=>({object:'block',type:'bulleted_list_item',bulleted_list_item:{rich_text:[{text:{content:d}}]}}))
       ] : [],
       ...(combinedResult.actionItems||[]).length ? [
-        {object:'block',type:'heading_3',heading_3:{rich_text:[{text:{content:'✅ All Action Items'}}]}},
+        {object:'block',type:'heading_3',heading_3:{rich_text:[{text:{content:'✅ Action Items'}}]}},
         ...(combinedResult.actionItems||[]).map(a=>({object:'block',type:'to_do',to_do:{rich_text:[{text:{content:`${a.task} — ${a.owner} (${a.due})`}}],checked:false}}))
       ] : [],
       ...(combinedResult.nextSteps||[]).length ? [
@@ -899,11 +899,11 @@ async function appendToNotion(pageId, newTranscript, combinedResult) {
     typeBlocks = [
       ...(combinedResult.affirmation ? [{object:'block',type:'quote',quote:{rich_text:[{text:{content:'✨ ' + combinedResult.affirmation}}]}}] : []),
       ...(combinedResult.priorities||[]).length ? [
-        {object:'block',type:'heading_3',heading_3:{rich_text:[{text:{content:'🎯 All Priorities'}}]}},
+        {object:'block',type:'heading_3',heading_3:{rich_text:[{text:{content:'🎯 Priorities'}}]}},
         ...(combinedResult.priorities||[]).map(p=>({object:'block',type:'numbered_list_item',numbered_list_item:{rich_text:[{text:{content:p}}]}}))
       ] : [],
       ...(combinedResult.tasks||[]).length ? [
-        {object:'block',type:'heading_3',heading_3:{rich_text:[{text:{content:'✅ All Tasks'}}]}},
+        {object:'block',type:'heading_3',heading_3:{rich_text:[{text:{content:'✅ Tasks'}}]}},
         ...(combinedResult.tasks||[]).map(t=>({object:'block',type:'to_do',to_do:{rich_text:[{text:{content:t.task+(t.context?' — '+t.context:'')}}],checked:false}}))
       ] : []
     ];
@@ -919,7 +919,7 @@ async function appendToNotion(pageId, newTranscript, combinedResult) {
         ...(cluster.points||[]).map(p=>({object:'block',type:'bulleted_list_item',bulleted_list_item:{rich_text:[{text:{content:p}}]}}))
       ]),
       ...(combinedResult.openQuestions||[]).length ? [
-        {object:'block',type:'heading_3',heading_3:{rich_text:[{text:{content:'❓ All Open Questions'}}]}},
+        {object:'block',type:'heading_3',heading_3:{rich_text:[{text:{content:'❓ Open Questions'}}]}},
         ...(combinedResult.openQuestions||[]).map(q=>({object:'block',type:'bulleted_list_item',bulleted_list_item:{rich_text:[{text:{content:q}}]}}))
       ] : [],
       ...(combinedResult.nextSteps||[]).length ? [
@@ -929,22 +929,20 @@ async function appendToNotion(pageId, newTranscript, combinedResult) {
     ];
   }
 
-  const continuationBlocks = [
-    {object:'block',type:'divider',divider:{}},
-    {object:'block',type:'heading_2',heading_2:{rich_text:[{text:{content:'🔄 Full Session Update (Parts 1 + 2)'}}]}},
+  const freshBlocks = [
     ...typeBlocks,
-    {object:'block',type:'heading_3',heading_3:{rich_text:[{text:{content:'📎 Part 2 Transcript'}}]}},
-    ...chunkText(newTranscript, 1900).map(chunk=>({object:'block',type:'paragraph',paragraph:{rich_text:[{text:{content:chunk}}]}}))
+    {object:'block',type:'heading_2',heading_2:{rich_text:[{text:{content:'📎 Full Transcript (Parts 1 + 2)'}}]}},
+    ...chunkText(window._lastTranscript + '\n\n' + newTranscript, 1900).map(chunk=>({object:'block',type:'paragraph',paragraph:{rich_text:[{text:{content:chunk}}]}}))
   ];
 
-  const res = await fetch('https://notion-proxy.529165595.workers.dev/append', {
+  const res = await fetch('https://notion-proxy.529165595.workers.dev/replace', {
     method:'POST',
     headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({ notionToken, pageId, blocks: continuationBlocks })
+    body: JSON.stringify({ notionToken, pageId, blocks: freshBlocks })
   });
 
   if (res.ok) {
-    st.innerHTML = `<div class="status-bar success" style="margin-bottom:12px"><span class="status-icon">✅</span><span><strong>Appended to existing note!</strong></span></div>`;
+    st.innerHTML = `<div class="status-bar success" style="margin-bottom:12px"><span class="status-icon">✅</span><span><strong>Note updated with full session!</strong></span></div>`;
     window._continuationMode = false;
     window._lastNotionPageId = null;
     window._lastTranscript = null;
@@ -1253,7 +1251,7 @@ function showToast(msg) {
 </script>
 
 <div style="text-align:center;padding:32px 0 calc(24px + env(safe-area-inset-bottom));font-family:'DM Mono',monospace;font-size:11px;color:var(--text-3);opacity:0.5;">
-  v2.7 — Mar 2026<br>
+  v2.8 — Mar 2026<br>
   <span style="font-size:10px;">type-aware append · all sections updated per type · meeting todo braindump</span>
 </div>
 
