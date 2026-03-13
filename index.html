@@ -488,7 +488,7 @@
 <!-- ══════ SCREEN 3: RESULT ══════ -->
 <div class="screen" id="screen-result">
   <div class="topbar">
-    <button class="topbar-back" onclick="goTo('main');setRecordingScreenContext(true);" title="Back to recorder">
+    <button class="topbar-back" onclick="window._continuationMode=!!window._lastNotionPageId;goTo('main');setRecordingScreenContext(true);" title="Back to recorder">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
     </button>
     <div><div class="topbar-title" id="resultTitle">Notes</div><div class="topbar-sub" id="resultDate"></div></div>
@@ -812,7 +812,7 @@ async function pushToNotion() {
       console.log('Notion page ID:', window._lastNotionPageId, 'data:', data);
       st.innerHTML=`<div class="status-bar success" style="margin-bottom:12px"><span class="status-icon">✅</span><span><strong>Saved to Notion!</strong></span></div>`;
       // Show continue button for Meeting type — show regardless of page ID so button is always visible
-      if (type === 'Meeting') showContinueButton();
+      showContinueButton();
     }
     else { const e=await res.json(); st.innerHTML=`<div class="status-bar error" style="margin-bottom:12px"><span class="status-icon">❌</span><span>${e.message||'Check token & database ID.'}</span></div>`; if(btn){btn.disabled=false;btn.textContent='Retry';} }
   } catch(e) { st.innerHTML=`<div class="status-bar error" style="margin-bottom:12px"><span class="status-icon">❌</span><span>${e.message||'Unknown error'}</span></div>`; if(btn){btn.disabled=false;btn.textContent='Retry';} }
@@ -934,6 +934,29 @@ function setRecordingScreenContext(fromResult) {
   document.getElementById('recordScreenSub').textContent = fromResult
     ? (window._continuationMode ? 'Will merge with previous recording' : 'Back to capture')
     : 'Record or paste a transcript';
+
+  if (fromResult) {
+    // Reset recorder UI so it's ready to record again
+    const btn = document.getElementById('recordBtn');
+    btn.disabled = false;
+    btn.onclick = toggleRecording;
+    btn.style.background = 'var(--accent)';
+    btn.style.boxShadow = '0 6px 24px rgba(192,107,58,0.40)';
+    document.getElementById('recordBtnIcon').innerHTML = `<svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="9" y1="22" x2="15" y2="22"/></svg>`;
+    document.getElementById('recordBtnText').textContent = window._continuationMode ? '⏺ Tap to continue recording' : 'Tap to record';
+    document.getElementById('recordBtnText').style.color = 'var(--text-2)';
+    document.getElementById('recordingStatus').style.display = 'none';
+    document.getElementById('recordTimer').textContent = '0:00';
+    document.getElementById('recordFileSize').textContent = '0 MB';
+    document.getElementById('fileSizeWarning').style.display = 'none';
+    document.getElementById('recordRing').style.display = 'none';
+    document.getElementById('errorBanner').style.display = 'none';
+    const saveBtn = document.getElementById('audioSaveBtn');
+    if (saveBtn) saveBtn.remove();
+    audioChunks = [];
+    window._lastAudioBlob = null;
+    window._lastAudioExt = null;
+  }
 }
 
 function newNote() {
