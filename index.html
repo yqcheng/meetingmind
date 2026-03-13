@@ -420,13 +420,22 @@
 <!-- ══════ SCREEN 2: RECORD ══════ -->
 <div class="screen" id="screen-main">
   <div class="topbar">
-    <button class="topbar-back" onclick="goTo('config')">
+    <button class="topbar-back" id="recordBackBtn" onclick="recordBack()">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
     </button>
-    <div><div class="topbar-title">New Capture</div><div class="topbar-sub">Record or paste a transcript</div></div>
+    <div><div class="topbar-title" id="recordScreenTitle">New Capture</div><div class="topbar-sub" id="recordScreenSub">Record or paste a transcript</div></div>
+    <!-- Forward button — only shown when coming from result -->
+    <button id="recordForwardBtn" onclick="goTo('result')" style="display:none;background:none;border:none;color:var(--text-2);cursor:pointer;padding:8px;margin-left:auto;">
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
+    </button>
   </div>
   <div class="scroll-area">
     <div class="steps"><div class="step done"></div><div class="step done"></div><div class="step"></div></div>
+
+    <!-- Continuation context banner -->
+    <div id="continuationBanner" style="display:none;margin:0 0 8px;padding:10px 16px;background:#FFF8F0;border:1.5px solid var(--accent);border-radius:14px;font-size:13px;color:var(--accent);font-weight:600;text-align:center;">
+      ⏺ Continuing session — recording will be merged with previous
+    </div>
 
     <!-- HERO: Record button -->
     <div style="display:flex;flex-direction:column;align-items:center;padding:32px 0 24px">
@@ -479,15 +488,15 @@
 <!-- ══════ SCREEN 3: RESULT ══════ -->
 <div class="screen" id="screen-result">
   <div class="topbar">
-    <button class="topbar-back" onclick="goTo('main')">
+    <button class="topbar-back" onclick="goTo('main');setRecordingScreenContext(true);" title="Back to recorder">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
     </button>
     <div><div class="topbar-title" id="resultTitle">Notes</div><div class="topbar-sub" id="resultDate"></div></div>
   </div>
   <div class="scroll-area" id="resultArea" style="padding-bottom: 100px"></div>
 
-  <!-- Floating new recording button -->
-  <button onclick="newNote()" style="
+  <!-- Floating NEW recording button (not continuation) -->
+  <button onclick="newNote()" title="New recording" style="
     position:fixed;
     bottom:calc(28px + env(safe-area-inset-bottom));
     right:24px;
@@ -797,11 +806,13 @@ async function pushToNotion() {
     });
     if (res.ok) {
       const data = await res.json();
-      window._lastNotionPageId = data.id || null;
+      // Notion returns id with hyphens e.g. "31f66a4c-349c-..."
+      window._lastNotionPageId = data.id || data.object === 'page' ? data.id : null;
       window._lastTranscript = transcript;
+      console.log('Notion page ID:', window._lastNotionPageId, 'data:', data);
       st.innerHTML=`<div class="status-bar success" style="margin-bottom:12px"><span class="status-icon">✅</span><span><strong>Saved to Notion!</strong></span></div>`;
-      // Show continue button if it was a Meeting
-      if (type === 'Meeting' && window._lastNotionPageId) showContinueButton();
+      // Show continue button for Meeting type — show regardless of page ID so button is always visible
+      if (type === 'Meeting') showContinueButton();
     }
     else { const e=await res.json(); st.innerHTML=`<div class="status-bar error" style="margin-bottom:12px"><span class="status-icon">❌</span><span>${e.message||'Check token & database ID.'}</span></div>`; if(btn){btn.disabled=false;btn.textContent='Retry';} }
   } catch(e) { st.innerHTML=`<div class="status-bar error" style="margin-bottom:12px"><span class="status-icon">❌</span><span>${e.message||'Unknown error'}</span></div>`; if(btn){btn.disabled=false;btn.textContent='Retry';} }
@@ -844,6 +855,7 @@ function continueMeeting() {
   const contBtn = document.getElementById('continueBtn');
   if (contBtn) contBtn.remove();
   goTo('main');
+  setRecordingScreenContext(true);
   // Show a subtle banner so user knows they're in continuation mode
   setTimeout(() => {
     showToast('Continuation mode — will append to existing note');
@@ -852,7 +864,12 @@ function continueMeeting() {
 
 async function appendToNotion(pageId, newTranscript, combinedResult) {
   const st = document.getElementById('notionStatus');
-  const type = combinedResult.type || 'Meeting';
+  if (!pageId) {
+    st.innerHTML = `<div class="status-bar error" style="margin-bottom:12px"><span class="status-icon">❌</span><span>Could not retrieve Notion page ID — continuation saved as new note instead.</span></div>`;
+    window._continuationMode = false;
+    pushToNotion();
+    return;
+  }
   const divider = {object:'block',type:'divider',divider:{}};
   const continuationBlocks = [
     divider,
@@ -901,6 +918,24 @@ function chunkText(text, maxLen) {
   return chunks;
 }
 
+function recordBack() {
+  // If we came from result (continuation context), go back to result
+  if (window._continuationMode || window._lastNotionPageId) {
+    goTo('result');
+  } else {
+    goTo('config');
+  }
+}
+
+function setRecordingScreenContext(fromResult) {
+  document.getElementById('recordForwardBtn').style.display = fromResult ? 'flex' : 'none';
+  document.getElementById('continuationBanner').style.display = (fromResult && window._continuationMode) ? 'block' : 'none';
+  document.getElementById('recordScreenTitle').textContent = fromResult ? 'Continue Session' : 'New Capture';
+  document.getElementById('recordScreenSub').textContent = fromResult
+    ? (window._continuationMode ? 'Will merge with previous recording' : 'Back to capture')
+    : 'Record or paste a transcript';
+}
+
 function newNote() {
   // Reset transcript and result
   document.getElementById('transcript').value = '';
@@ -930,6 +965,12 @@ function newNote() {
   // Remove save button if present
   const saveBtn = document.getElementById('audioSaveBtn');
   if (saveBtn) saveBtn.remove();
+
+  // Clear continuation context and reset screen
+  window._continuationMode = false;
+  window._lastNotionPageId = null;
+  window._lastTranscript = null;
+  setRecordingScreenContext(false);
 
   goTo('main');
 }
@@ -1135,8 +1176,8 @@ function showToast(msg) {
 </script>
 
 <div style="text-align:center;padding:32px 0 calc(24px + env(safe-area-inset-bottom));font-family:'DM Mono',monospace;font-size:11px;color:var(--text-3);opacity:0.5;">
-  v2.3 — Mar 2026<br>
-  <span style="font-size:10px;">continue meeting · floating record btn · chunked transcription · full notion transcript</span>
+  v2.4 — Mar 2026<br>
+  <span style="font-size:10px;">breadcrumb nav · continue session · forward/back between recorder and result</span>
 </div>
 
 </body>
