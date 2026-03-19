@@ -524,6 +524,28 @@
 <script>
 let result = null, transcript = '', claudeKey = '', notionToken = '', databaseId = '', groqKey = '', mediaRecorder = null, audioChunks = [], isRecording = false;
 
+// iOS background keep-alive: play silent audio so iOS doesn't suspend the page when switching apps
+let _silentAudioCtx = null, _silentSource = null;
+function startSilentAudio() {
+  try {
+    _silentAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const buf = _silentAudioCtx.createBuffer(1, _silentAudioCtx.sampleRate, _silentAudioCtx.sampleRate);
+    _silentSource = _silentAudioCtx.createBufferSource();
+    _silentSource.buffer = buf;
+    _silentSource.loop = true;
+    const gain = _silentAudioCtx.createGain();
+    gain.gain.value = 0.001; // near-silent, not completely zero (some iOS versions mute zero-gain)
+    _silentSource.connect(gain);
+    gain.connect(_silentAudioCtx.destination);
+    _silentSource.start(0);
+  } catch(e) { /* non-critical, fail silently */ }
+}
+function stopSilentAudio() {
+  try { _silentSource && _silentSource.stop(); } catch(e) {}
+  try { _silentAudioCtx && _silentAudioCtx.close(); } catch(e) {}
+  _silentAudioCtx = null; _silentSource = null;
+}
+
 (function init() {
   try {
     const saved = localStorage.getItem('mmind_cfg');
@@ -1101,6 +1123,7 @@ async function startRecording() {
     mediaRecorder.ondataavailable = e => { if (e.data.size > 0) audioChunks.push(e.data); };
     mediaRecorder.onstop = handleRecordingStop;
     mediaRecorder.start(1000);
+    startSilentAudio();
     isRecording = true;
     recordSeconds = 0;
     document.getElementById('recordBtn').style.background = '#9A5228';
@@ -1128,6 +1151,7 @@ function stopRecording() {
   if (mediaRecorder && isRecording) {
     mediaRecorder.stop();
     mediaRecorder.stream.getTracks().forEach(t => t.stop());
+    stopSilentAudio();
     isRecording = false;
     clearInterval(recordInterval);
     document.getElementById('recordBtn').disabled = true;
@@ -1251,7 +1275,7 @@ function showToast(msg) {
 </script>
 
 <div style="text-align:center;padding:32px 0 calc(24px + env(safe-area-inset-bottom));font-family:'DM Mono',monospace;font-size:11px;color:var(--text-3);opacity:0.5;">
-  v2.8 — Mar 2026<br>
+  v2.9 — Mar 2026<br>
   <span style="font-size:10px;">type-aware append · all sections updated per type · meeting todo braindump</span>
 </div>
 
